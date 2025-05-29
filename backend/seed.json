@@ -1,0 +1,127 @@
+{
+  "unit_types": [
+    { "name": "Each", "category": "count", "description": "A single item." },
+    { "name": "Linear Foot", "category": "length", "description": "Measurement in linear feet." },
+    { "name": "Square Foot", "category": "area" },
+    { "name": "Cubic Foot", "category": "volume" },
+    { "name": "Kg", "category": "mass" },
+    { "name": "Lb", "category": "mass" },
+    { "name": "Box", "category": "count" },
+    { "name": "Sheet", "category": "count" },
+    { "name": "Item", "category": "count" },
+    { "name": "Set", "category": "count" },
+    { "name": "Bag", "category": "count", "description": "A standard bag of material." }
+  ],
+  "materials": [
+    {
+      "name": "JPC Picket 5.5in x 6ft",
+      "description": "Standard Japanese Cedar Picket",
+      "cost_per_supplier_unit": 6.50,
+      "supplier_unit_type_name": "Each",
+      "quantity_in_supplier_unit": 1,
+      "base_unit_type_name": "Each"
+    },
+    {
+      "name": "Postmaster Post 8ft",
+      "description": "Galvanized Steel Postmaster Post, 8ft length",
+      "cost_per_supplier_unit": 35.00,
+      "supplier_unit_type_name": "Each",
+      "quantity_in_supplier_unit": 1,
+      "base_unit_type_name": "Each"
+    },
+    {
+      "name": "Concrete Mix 80lb",
+      "description": "Standard 80lb bag of concrete mix",
+      "cost_per_supplier_unit": 7.00,
+      "supplier_unit_type_name": "Bag",
+      "quantity_in_supplier_unit": 1,
+      "base_unit_type_name": "Bag"
+    },
+    {
+      "name": "JPC Cap Board 2x4x8",
+      "description": "Japanese Cedar Cap Board 2x4, 8ft long, for cap rail variation.",
+      "cost_per_supplier_unit": 12.00,
+      "supplier_unit_type_name": "Each",
+      "quantity_in_supplier_unit": 1,
+      "base_unit_type_name": "Each"
+    }
+  ],
+  "products": [
+    {
+      "name": "6ft Postmaster Horizontal JPC Stained Fence",
+      "description": "A 6ft tall Postmaster fence with horizontal Japanese Cedar pickets, stained.",
+      "product_unit_type_name": "Linear Foot",
+      "base_labor_cost_per_product_unit": 10.00,
+      "materials": [
+        { "material_name": "JPC Picket 5.5in x 6ft", "quantity_per_product_unit": 2.182 },
+        { "material_name": "Postmaster Post 8ft", "quantity_per_product_unit": 0.125 },
+        { "material_name": "Concrete Mix 80lb", "quantity_per_product_unit": 0.25 }
+      ],
+      "variation_groups": [
+        {
+          "name": "Style",
+          "selection_type": "single_choice",
+          "is_required": true,
+          "options": [
+            {
+              "name": "Side-by-Side",
+              "value_description": "Pickets are placed side by side.",
+              "additional_price": 0.00,
+              "price_multiplier": 1.000,
+              "additional_labor_cost_per_product_unit": 0.00
+            },
+            {
+              "name": "Board-on-Board",
+              "value_description": "Pickets overlap for full privacy.",
+              "additional_price": 0.00, 
+              "price_multiplier": 1.000,
+              "additional_labor_cost_per_product_unit": 2.00,
+              "materials_added": [
+                { "material_name": "JPC Picket 5.5in x 6ft", "quantity_added": 1.091 }
+              ]
+            }
+          ]
+        },
+        {
+          "name": "Add Cap Rail",
+          "selection_type": "single_choice",
+          "is_required": false,
+          "options": [
+            {
+              "name": "No Cap Rail",
+              "value_description": "Standard top.",
+              "additional_price": 0.00
+            },
+            {
+              "name": "Yes - Add Cap Rail",
+              "value_description": "Adds a 2x4 cap rail on top of the fence.",
+              "additional_price": 0.00,
+              "additional_labor_cost_per_product_unit": 1.50,
+              "materials_added": [
+                { "material_name": "JPC Cap Board 2x4x8", "quantity_added": 0.125 }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "quote_configs": [
+    {
+      "name": "Residential Default",
+      "margin_rate": 0.35,
+      "tax_rate": 0.0825,
+      "sales_commission_rate": 0.02,
+      "franchise_fee_rate": 0.01,
+      "additional_fixed_fees": 50.00
+    },
+    {
+      "name": "Commercial Project Config",
+      "margin_rate": 0.25,
+      "tax_rate": 0.0825,
+      "sales_commission_rate": 0.03,
+      "franchise_fee_rate": 0.01,
+      "additional_fixed_fees": 250.00
+    }
+  ]
+}

@@ -1,0 +1,321 @@
+from datetime import datetime # Add datetime import
+from pydantic import field_serializer, BaseModel as PydanticBaseModel, ConfigDict
+from sqlalchemy.types import TypeDecorator
+from sqlalchemy.dialects.postgresql import JSONB
+import json 
+from typing import List, Optional, Any, Type
+from decimal import Decimal
+from sqlmodel import Field, SQLModel, Relationship 
+from sqlalchemy import Column, Text, func, UniqueConstraint # Add func and UniqueConstraint imports
+
+# Custom SQLAlchemy TypeDecorator for lists of Pydantic models
+class PydanticListJSONB(TypeDecorator):
+    """Handles lists of Pydantic models for JSONB storage.
+
+    Converts a list of Pydantic model instances to a list of dictionaries
+    for storage, and vice-versa. SQLAlchemy's JSONB type handles the
+    actual serialization/deserialization to/from a JSON string in the database.
+    """
+    impl = JSONB  # Use PostgreSQL JSONB type for native JSON support
+    cache_ok = True # Indicates that this TypeDecorator is cacheable
+
+    def __init__(self, pydantic_type: Type[PydanticBaseModel], *args: Any, **kwargs: Any):
+        self.pydantic_type = pydantic_type
+        super().__init__(*args, **kwargs)
+
+    def process_bind_param(self, value: Optional[List[PydanticBaseModel]], dialect: Any) -> Optional[List[dict]]:
+        """Convert Pydantic models to a list of dicts for JSONB storage."""
+        if value is None:
+            return None
+        if not all(isinstance(item, self.pydantic_type) for item in value):
+            raise ValueError(f"All items must be instances of {self.pydantic_type.__name__}")
+        # The `mode='json'` ensures that any custom serializers (like for Decimal) are applied.
+        return [item.model_dump(mode='json') for item in value]
+
+    def process_result_value(self, value: Optional[Any], dialect: Any) -> Optional[List[PydanticBaseModel]]:
+        """Convert a list of dicts (from JSONB) back to Pydantic models."""
+        if value is None:
+            return None
+        
+        # SQLAlchemy's JSONB type should already parse the JSON string from the DB into a Python list of dicts.
+        # If it's a string, it might be a default value or an issue with the JSONB type handling.
+        # For robustness, especially if dealing with defaults that might be strings.
+        data_to_parse: List[dict]
+        if isinstance(value, str):
+            try:
+                loaded_value = json.loads(value)
+                if not isinstance(loaded_value, list):
+                    # Or raise a more specific error, log a warning, etc.
+                    # This path suggests the DB string wasn't a JSON list.
+                    return [] 
+                data_to_parse = loaded_value
+            except json.JSONDecodeError:
+                # Handle cases where string is not valid JSON
+                # Depending on requirements, could raise error, log, or return empty/default.
+                # For now, returning empty list if parsing fails.
+                return [] 
+        elif isinstance(value, list):
+            data_to_parse = value
+        else:
+            # Unexpected type from the database for this column.
+            # Log warning or raise error. For now, returning empty list.
+            return []
+
+        try:
+            return [self.pydantic_type(**item) for item in data_to_parse]
+        except Exception as e: # Catch Pydantic validation errors or other issues
+            # Log the error, and decide on behavior (raise, return partial, return empty)
+            # For now, re-raising to make issues visible during development/testing
+            # In production, might prefer to return None or an empty list with logging.
+            # print(f"Error processing result value for PydanticListJSONB: {e}") # Consider proper logging
+            raise # Or return [] / None based on error handling strategy
+
+
+# Pydantic models for JSONB fields (not SQLModel table models)
+class BillOfMaterialEntry(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True) # Removed json_encoders
+
+    material_name: str
+    quantity: Decimal # Changed from float
+    unit_cost: Decimal # Changed from float
+    total_cost: Decimal # Changed from float
+    # Add unit_name for clarity in BOM
+    unit_name: Optional[str] = None
+
+    @field_serializer('quantity', 'unit_cost', 'total_cost', when_used='json')
+    def serialize_decimals_to_str(self, v: Decimal):
+        return str(v)
+
+
+class AppliedRateInfoEntry(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True) # Removed json_encoders
+
+    name: str
+    type: str # e.g., 'margin', 'fee_on_cogs', 'fee_fixed', 'markup'
+    rate_value: Decimal # Changed from float
+    applied_amount: Decimal # Changed from float
+
+    @field_serializer('rate_value', 'applied_amount', when_used='json')
+    def serialize_decimals_to_str(self, v: Decimal):
+        return str(v)
+
+# SQLModel Table Models
+
+class UnitTypeBase(SQLModel):
+    name: str = Field(max_length=50, unique=True, index=True)
+    category: str = Field(max_length=50)
+
+class UnitType(UnitTypeBase, table=True):
+    __tablename__ = "unit_type" # Explicitly define table name to match plan
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    materials_as_supplier_unit: List["Material"] = Relationship(
+        back_populates="supplier_unit_type",
+        sa_relationship_kwargs={'foreign_keys': '[Material.supplier_unit_type_id]'}
+    )
+    materials_as_base_unit: List["Material"] = Relationship(
+        back_populates="base_unit_type",
+        sa_relationship_kwargs={'foreign_keys': '[Material.base_unit_type_id]'}
+    )
+    products: List["Product"] = Relationship(back_populates="product_unit_type")
+
+
+class MaterialBase(SQLModel):
+    name: str = Field(max_length=255)
+    description: Optional[str] = Field(default=None)
+    cost_per_supplier_unit: Decimal = Field(max_digits=10, decimal_places=2)
+    supplier_unit_type_id: Optional[int] = Field(default=None, foreign_key="unit_type.id")
+    quantity_in_supplier_unit: Decimal = Field(default=Decimal("1.0"), max_digits=10, decimal_places=3)
+    base_unit_type_id: int = Field(foreign_key="unit_type.id")
+
+class Material(MaterialBase, table=True):
+    __tablename__ = "material"
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    supplier_unit_type: Optional["UnitType"] = Relationship(
+        back_populates="materials_as_supplier_unit",
+        sa_relationship_kwargs={'foreign_keys': '[Material.supplier_unit_type_id]'}
+    )
+    base_unit_type: "UnitType" = Relationship(
+        back_populates="materials_as_base_unit",
+        sa_relationship_kwargs={'foreign_keys': '[Material.base_unit_type_id]'}
+    )
+    
+    product_materials: List["ProductMaterial"] = Relationship(back_populates="material")
+    variation_option_materials: List["VariationOptionMaterial"] = Relationship(back_populates="material")
+
+
+class ProductBase(SQLModel):
+    name: str = Field(max_length=255, unique=True, index=True)
+    description: Optional[str] = Field(default=None)
+    product_unit_type_id: int = Field(foreign_key="unit_type.id")
+    base_labor_cost_per_product_unit: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+
+class Product(ProductBase, table=True):
+    __tablename__ = "product"
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    product_unit_type: "UnitType" = Relationship(back_populates="products")
+    
+    product_materials: List["ProductMaterial"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    variation_groups: List["VariationGroup"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    quote_product_entries: List["QuoteProductEntry"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+
+class ProductMaterialBase(SQLModel):
+    product_id: int = Field(foreign_key="product.id")
+    material_id: int = Field(foreign_key="material.id")
+    quantity_of_material_base_units_per_product_unit: Decimal = Field(max_digits=10, decimal_places=3)
+
+class ProductMaterial(ProductMaterialBase, table=True):
+    __tablename__ = "product_material"
+    id: Optional[int] = Field(default=None, primary_key=True) # Surrogate PK as per schema
+    # product_id and material_id are part of a unique constraint, not composite PK here
+    __table_args__ = (UniqueConstraint("product_id", "material_id", name="uq_product_material_prod_mat"),)
+
+    product: "Product" = Relationship(back_populates="product_materials")
+    material: "Material" = Relationship(back_populates="product_materials")
+
+
+class VariationGroupBase(SQLModel):
+    product_id: int = Field(foreign_key="product.id")
+    name: str = Field(max_length=100)
+    selection_type: str = Field(default="single_choice", max_length=20) # 'single_choice', 'multi_choice'
+    is_required: bool = Field(default=False)
+
+class VariationGroup(VariationGroupBase, table=True):
+    __tablename__ = "variation_group"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    __table_args__ = (UniqueConstraint("product_id", "name", name="uq_variation_group_product_name"),)
+
+    product: "Product" = Relationship(back_populates="variation_groups")
+    options: List["VariationOption"] = Relationship(back_populates="variation_group", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+
+class VariationOptionBase(SQLModel):
+    variation_group_id: int = Field(foreign_key="variation_group.id")
+    name: str = Field(max_length=100)
+    value_description: Optional[str] = Field(default=None)
+    additional_price: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+    price_multiplier: Decimal = Field(default=Decimal("1.000"), max_digits=5, decimal_places=3)
+    additional_labor_cost_per_product_unit: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+
+class VariationOption(VariationOptionBase, table=True):
+    __tablename__ = "variation_option"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    __table_args__ = (UniqueConstraint("variation_group_id", "name", name="uq_variation_option_group_name"),)
+
+    variation_group: "VariationGroup" = Relationship(back_populates="options")
+    variation_option_materials: List["VariationOptionMaterial"] = Relationship(back_populates="variation_option", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    quote_product_entry_variations: List["QuoteProductEntryVariation"] = Relationship(back_populates="variation_option")
+
+
+class VariationOptionMaterialBase(SQLModel):
+    variation_option_id: int = Field(foreign_key="variation_option.id")
+    material_id: int = Field(foreign_key="material.id")
+    quantity_of_material_base_units_added: Decimal = Field(max_digits=10, decimal_places=3)
+
+class VariationOptionMaterial(VariationOptionMaterialBase, table=True):
+    __tablename__ = "variation_option_material"
+    id: Optional[int] = Field(default=None, primary_key=True) # Surrogate PK
+    __table_args__ = (UniqueConstraint("variation_option_id", "material_id", name="uq_vom_option_material"),)
+
+    variation_option: "VariationOption" = Relationship(back_populates="variation_option_materials")
+    material: "Material" = Relationship(back_populates="variation_option_materials")
+
+
+class QuoteConfigBase(SQLModel):
+    name: str = Field(default="Default Quote Config", max_length=100, unique=True, index=True)
+    margin_rate: Decimal = Field(default=Decimal("0.30"), max_digits=5, decimal_places=4)
+    tax_rate: Decimal = Field(default=Decimal("0.00"), max_digits=5, decimal_places=4)
+    sales_commission_rate: Decimal = Field(default=Decimal("0.00"), max_digits=5, decimal_places=4)
+    franchise_fee_rate: Decimal = Field(default=Decimal("0.00"), max_digits=5, decimal_places=4)
+    additional_fixed_fees: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+
+class QuoteConfig(QuoteConfigBase, table=True):
+    __tablename__ = "quote_config"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    quotes: List["Quote"] = Relationship(back_populates="quote_config")
+
+
+class QuoteBase(SQLModel):
+    name: Optional[str] = Field(default=None, max_length=255)
+    description: Optional[str] = Field(default=None)
+    quote_config_id: int = Field(foreign_key="quote_config.id")
+    status: str = Field(default="draft", max_length=20)
+    created_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column_kwargs={"server_default": func.now()}
+    )
+    updated_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()}
+    )
+
+class Quote(QuoteBase, table=True):
+    __tablename__ = "quote"
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    quote_config: "QuoteConfig" = Relationship(back_populates="quotes")
+    product_entries: List["QuoteProductEntry"] = Relationship(back_populates="quote", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    calculated_quote: Optional["CalculatedQuote"] = Relationship(
+        back_populates="quote",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False} # One-to-one
+    )
+
+
+class QuoteProductEntryBase(SQLModel):
+    quote_id: int = Field(foreign_key="quote.id")
+    product_id: int = Field(foreign_key="product.id") # ON DELETE RESTRICT is default if not specified for FK
+    quantity_of_product_units: Decimal = Field(max_digits=10, decimal_places=2)
+    notes: Optional[str] = Field(default=None)
+
+class QuoteProductEntry(QuoteProductEntryBase, table=True):
+    __tablename__ = "quote_product_entry"
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    quote: "Quote" = Relationship(back_populates="product_entries")
+    product: "Product" = Relationship(back_populates="quote_product_entries")
+    selected_variations: List["QuoteProductEntryVariation"] = Relationship(
+        back_populates="quote_product_entry",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+
+class QuoteProductEntryVariationBase(SQLModel):
+    quote_product_entry_id: int = Field(foreign_key="quote_product_entry.id")
+    variation_option_id: int = Field(foreign_key="variation_option.id") # ON DELETE RESTRICT
+
+class QuoteProductEntryVariation(QuoteProductEntryVariationBase, table=True):
+    __tablename__ = "quote_product_entry_variation"
+    id: Optional[int] = Field(default=None, primary_key=True) # Surrogate PK
+    __table_args__ = (UniqueConstraint("quote_product_entry_id", "variation_option_id", name="uq_qpev_entry_option"),)
+
+    quote_product_entry: "QuoteProductEntry" = Relationship(back_populates="selected_variations")
+    variation_option: "VariationOption" = Relationship(back_populates="quote_product_entry_variations")
+
+
+class CalculatedQuoteBase(SQLModel):
+    quote_id: int = Field(foreign_key="quote.id", unique=True) # Ensures one-to-one with Quote
+    bill_of_materials_json: Optional[List[BillOfMaterialEntry]] = Field(
+        default=None, sa_column=Column(PydanticListJSONB(BillOfMaterialEntry)) # Use custom TypeDecorator
+    )
+    total_material_cost: Decimal = Field(max_digits=12, decimal_places=2)
+    total_labor_cost: Decimal = Field(max_digits=12, decimal_places=2)
+    cost_of_goods_sold: Decimal = Field(max_digits=12, decimal_places=2)
+    applied_rates_info_json: Optional[List[AppliedRateInfoEntry]] = Field(
+        default=None, sa_column=Column(PydanticListJSONB(AppliedRateInfoEntry)) # Use custom TypeDecorator
+    )
+    subtotal_before_tax: Decimal = Field(max_digits=12, decimal_places=2)
+    tax_amount: Decimal = Field(max_digits=12, decimal_places=2)
+    final_price: Decimal = Field(max_digits=12, decimal_places=2)
+    calculated_at: datetime = Field(
+        default_factory=datetime.utcnow,
+        sa_column_kwargs={"server_default": func.now()}
+    )
+
+class CalculatedQuote(CalculatedQuoteBase, table=True):
+    __tablename__ = "calculated_quote"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    quote: "Quote" = Relationship(back_populates="calculated_quote")
+

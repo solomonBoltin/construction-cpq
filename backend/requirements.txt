@@ -1,0 +1,9 @@
+# Add Python dependencies here
+fastapi
+uvicorn
+sqlmodel
+psycopg2-binary
+pydantic
+pydantic-settings
+pytest
+httpx

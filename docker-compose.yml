@@ -1,0 +1,79 @@
+version: '3.8'
+
+services:
+  db:
+    image: postgres:15-alpine
+    container_name: cpq_postgres_db
+    restart: unless-stopped
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    healthcheck:
+      # Healthcheck now only checks for the main DB readiness
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cpq_backend_api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      # Main database URL used by the backend
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      - PYTHONPATH=/app:/app/app
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8000 || exit 1"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  e2e_tests:
+    build:
+      context: ./e2e_tests # Changed context
+      dockerfile: Dockerfile   # Using Dockerfile from ./e2e_tests
+    container_name: cpq_e2e_tests_runner # Renamed for clarity
+    depends_on:
+      backend:
+        condition: service_healthy # Depends on backend being healthy
+      db: # Also depends on db, as backend needs it
+        condition: service_healthy
+    environment:
+      # This is the URL the tests will hit. It points to the backend service.
+      - BACKEND_BASE_URL=http://backend:8000/api/v1
+      # Potentially other env vars needed by tests, like API keys if any in future
+    env_file:
+      - .env # So tests can access POSTGRES_USER/PASSWORD if direct DB interaction for cleanup was ever chosen (not current plan)
+    # Simplified command to just run pytest
+    command: >
+      sh -c "
+        echo 'Waiting for backend service to be fully responsive before starting tests...' &&
+        # Python script could do a more sophisticated wait/health-check here if nc is not enough
+        # For now, relying on depends_on and backend healthcheck.
+        # A small delay can sometimes help ensure all backend initializations are complete.
+        sleep 5 && 
+        echo 'Backend should be up. Running E2E tests...' &&
+        pytest . -v -s
+      "
+    # No volumes needed if Dockerfile copies all necessary files and tests don't write persistent output here
+
+volumes:
+  postgres_data:
