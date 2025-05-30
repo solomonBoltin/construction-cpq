@@ -10,7 +10,7 @@ from typing import List, Dict, Any, Generator, Optional
 
 # --- Configuration ---
 DELETE_WHEN_FINISHED = True  # Set to False to keep created test data
-BASE_URL = os.getenv("BACKEND_BASE_URL", "http://localhost:8000/api/v1")
+BASE_URL = os.getenv("BACKEND_BASE_URL")
 
 # Global list to keep track of created entities for cleanup
 # Each item will be a dict: {"type": "entity_name", "id": entity_id, "name": "entity_unique_name_for_lookup"}

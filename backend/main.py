@@ -5,6 +5,8 @@ import logging
 from app.database import create_db_and_tables
 # Import your API routers here when they are created, e.g.:
 from app.api import router as api_router # Import the router from api.py
+from app.config import settings  # Import settings for configuration
+
 
 # Set up logging configuration
 logging.basicConfig(level=logging.DEBUG)
@@ -41,4 +43,4 @@ app.include_router(api_router, prefix="/api/v1") # Prefix all these routes with 
 # For running directly with uvicorn for development (though Docker is preferred for deployment)
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+    uvicorn.run(app, host="0.0.0.0", port=settings.BACKEND_PORT)

@@ -5,8 +5,17 @@ from sqlalchemy.dialects.postgresql import JSONB
 import json 
 from typing import List, Optional, Any, Type
 from decimal import Decimal
-from sqlmodel import Field, SQLModel, Relationship 
-from sqlalchemy import Column, Text, func, UniqueConstraint # Add func and UniqueConstraint imports
+from sqlmodel import Field, SQLModel, Relationship
+from sqlmodel.main import SQLModelMetaclass
+from sqlalchemy import Column,  Text, func, UniqueConstraint # Add func and UniqueConstraint imports
+
+
+class ColumnCloningMetaclass(SQLModelMetaclass):
+    def __setattr__(cls, name: str, value: Any) -> None:
+        if isinstance(value, Column):
+            return super().__setattr__(name, value.copy())
+        return super().__setattr__(name, value)
+
 
 # Custom SQLAlchemy TypeDecorator for lists of Pydantic models
 class PydanticListJSONB(TypeDecorator):
@@ -121,7 +130,7 @@ class UnitType(UnitTypeBase, table=True):
 
 
 class MaterialBase(SQLModel):
-    name: str = Field(max_length=255)
+    name: str = Field(max_length=255, unique=True, index=True)
     description: Optional[str] = Field(default=None)
     cost_per_supplier_unit: Decimal = Field(max_digits=10, decimal_places=2)
     supplier_unit_type_id: Optional[int] = Field(default=None, foreign_key="unit_type.id")
@@ -131,7 +140,7 @@ class MaterialBase(SQLModel):
 class Material(MaterialBase, table=True):
     __tablename__ = "material"
     id: Optional[int] = Field(default=None, primary_key=True)
-
+    
     supplier_unit_type: Optional["UnitType"] = Relationship(
         back_populates="materials_as_supplier_unit",
         sa_relationship_kwargs={'foreign_keys': '[Material.supplier_unit_type_id]'}
@@ -154,7 +163,7 @@ class ProductBase(SQLModel):
 class Product(ProductBase, table=True):
     __tablename__ = "product"
     id: Optional[int] = Field(default=None, primary_key=True)
-
+    
     product_unit_type: "UnitType" = Relationship(back_populates="products")
     
     product_materials: List["ProductMaterial"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
@@ -178,8 +187,8 @@ class ProductMaterial(ProductMaterialBase, table=True):
 
 
 class VariationGroupBase(SQLModel):
-    product_id: int = Field(foreign_key="product.id")
     name: str = Field(max_length=100)
+    product_id: int = Field(foreign_key="product.id")
     selection_type: str = Field(default="single_choice", max_length=20) # 'single_choice', 'multi_choice'
     is_required: bool = Field(default=False)
 
@@ -193,8 +202,8 @@ class VariationGroup(VariationGroupBase, table=True):
 
 
 class VariationOptionBase(SQLModel):
-    variation_group_id: int = Field(foreign_key="variation_group.id")
     name: str = Field(max_length=100)
+    variation_group_id: int = Field(foreign_key="variation_group.id")
     value_description: Optional[str] = Field(default=None)
     additional_price: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
     price_multiplier: Decimal = Field(default=Decimal("1.000"), max_digits=5, decimal_places=3)

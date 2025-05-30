@@ -1,7 +1,7 @@
 version: '3.8'
 
 services:
-  db:
+  cpq_db:
     image: postgres:15-alpine
     container_name: cpq_postgres_db
     restart: unless-stopped
@@ -10,15 +10,20 @@ services:
     ports:
       - "5432:5432"
     environment:
-      - POSTGRES_USER=${POSTGRES_USER}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
-      - POSTGRES_DB=${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_PORT: ${POSTGRES_PORT}
     healthcheck:
       # Healthcheck now only checks for the main DB readiness
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 10s
       timeout: 5s
       retries: 5
+  
+    networks:
+      - cpq_network
+    
 
   backend:
     build:
@@ -27,24 +32,31 @@ services:
     container_name: cpq_backend_api
     restart: unless-stopped
     ports:
-      - "8000:8000"
+      - "${BACKEND_PORT}:${BACKEND_PORT}"
     volumes:
       - ./backend:/app
     depends_on:
-      db:
+      cpq_db:
         condition: service_healthy
     environment:
-      # Main database URL used by the backend
-      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
-      - PYTHONPATH=/app:/app/app
+      POSTGRES_HOST: cpq_db # change when changing service name
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+      PYTHONPATH: /app:/app/app #check this
+      BACKEND_PORT: ${BACKEND_PORT}
     env_file:
       - .env
     healthcheck:
-      test: ["CMD-SHELL", "nc -z localhost 8000 || exit 1"]
+      test: ["CMD-SHELL", "nc -z localhost ${BACKEND_PORT} || exit 1"]
       interval: 15s
       timeout: 5s
       retries: 5
       start_period: 30s
+    networks:
+      - cpq_network
 
   e2e_tests:
     build:
@@ -54,11 +66,11 @@ services:
     depends_on:
       backend:
         condition: service_healthy # Depends on backend being healthy
-      db: # Also depends on db, as backend needs it
+      cpq_db: # Also depends on db, as backend needs it
         condition: service_healthy
     environment:
       # This is the URL the tests will hit. It points to the backend service.
-      - BACKEND_BASE_URL=http://backend:8000/api/v1
+      - BACKEND_BASE_URL=http://backend:${BACKEND_PORT}/api/v1
       # Potentially other env vars needed by tests, like API keys if any in future
     env_file:
       - .env # So tests can access POSTGRES_USER/PASSWORD if direct DB interaction for cleanup was ever chosen (not current plan)
@@ -75,5 +87,66 @@ services:
       "
     # No volumes needed if Dockerfile copies all necessary files and tests don't write persistent output here
 
+    restart: "no" 
+    networks:
+      - cpq_network
+
+  cpq_nocodb_app:
+    image: nocodb/nocodb:latest
+    container_name: cpq_nocodb_app
+    ports:
+      - "${NC_PORT}:8080" 
+    environment:
+      NC_AUTH_JWT_SECRET: "${NC_AUTH_JWT_SECRET}"
+      NC_PUBLIC_URL: "${NC_PUBLIC_URL}"
+      NC_ADMIN_EMAIL: "${NC_ADMIN_EMAIL}"
+      NC_ADMIN_PASSWORD: "${NC_ADMIN_PASSWORD}"
+      NC_TOOL_DIR: "/usr/app/data/"
+
+    volumes:
+      - nocodb_data:/usr/app/data/
+
+    healthcheck:
+      test: ["CMD-SHELL", "curl --silent --fail ${NC_PUBLIC_URL}/api/v1/health || exit 1"]
+      interval: 15s
+      timeout: 10s 
+      retries: 5
+      start_period: 45s 
+    networks:
+      - cpq_network
+    restart: unless-stopped
+
+  # Automatically creates the base and our pg source so it can be viewed and edited in nocodb
+  nocodb_base_setup: 
+    build: ./nocodb_base_setup 
+    container_name: nocodb_base_setup
+    environment:
+      NOCODB_BASE_URL: "http://cpq_nocodb_app:${NC_PORT}"
+      NOCODB_EMAIL: "${NC_ADMIN_EMAIL}"
+      NOCODB_PASSWORD: "${NC_ADMIN_PASSWORD}"
+      
+      POSTGRES_HOST: cpq_db # change when changing service name
+      POSTGRES_PORT: ${POSTGRES_PORT}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+
+      BASE_TITLE: "${BASE_TITLE:-Base1}"
+      SOURCE_TITLE: "${SOURCE_TITLE:-Base1 PG Source}"
+    depends_on:
+      backend:
+        condition: service_healthy
+      cpq_nocodb_app:
+        condition: service_healthy
+    networks:
+      - cpq_network
+    # restart: on-failure
+  
+
+
+networks:
+  cpq_network:
+    driver: bridge
 volumes:
   postgres_data:
+  nocodb_data:

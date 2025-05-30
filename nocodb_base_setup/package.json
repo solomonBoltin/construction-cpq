@@ -1,0 +1,21 @@
+{
+  "name": "nocodb-automation",
+  "version": "1.0.0",
+  "description": "Automates NocoDB setup: PostgreSQL integration, base creation, and source linking.",
+  "main": "setup_auto.js",
+  "type": "module",
+  "scripts": {
+    "start": "node setup_auto.js"
+  },
+  "keywords": [
+    "nocodb",
+    "automation",
+    "postgresql"
+  ],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "dotenv": "^16.0.0",
+    "node-fetch": "^3.0.0"
+  }
+}
