@@ -364,11 +364,26 @@ volumes:
 # 6. verify the bill of materials in the calculated quote
 # 7. check what happens with products requirering partial quantities (e.g., 1.5 fence panels) if rounds them up at project level or not
 # 8. verify the handling of different unit types and conversions
+i want you to create a new e2e test that check what happens if i have a fence that uses rails that come in 5 foot units i know that evry unit (foot) of product will be 0.2, lets test a senario where i need 6 foot and see he charged for two units (cause alwase rounding up)
+see #file:e2e_tests 
+ok lets define some rule in this system 
+1. when a veriation group is deleted all the options go as well 
+2. product and variation group is a many to many relationship 
+3. when quote is deleted all calculations and entries will go with it 
+4. evry test will have its test name in objects it creates
+5. evry test before running will use wipe_test_data wich will wipe all data it creates using the api 
+6. if not possible to delete make it possible in api 
+your alouwed to edit all files in #file:e2e_tests and #file:api.py and #file:models.py 
 
-
+when ever you want to run the e2e tests just run docker-compose up e2e_tests  
 Development Loop :
 currently focusing entirely on backend and e2e tests
 check current status, Execute plan write tests run fix and loop until succsess verfied 
 inorder to mange state of development use state.txt file (create if needed) where you will write evry desition and action you took while developing the project
 when i say e2e tests i mean we run docker compose with extra e2e_tests service wich runs tests performing api calls to verify the functionality of the backend 
 
+in tests create unit types only if not existed 
+
+Next Steps:
+- run e2e tests, check logs, iterate until evything is good 
+use docker-compose down -v & docker-compose up --build -d, then check e2e test results 

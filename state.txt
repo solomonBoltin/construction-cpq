@@ -76,3 +76,4 @@ Actions Taken:
 
 Next Steps:
 - run e2e tests, check logs, iterate until evything is good 
+use docker-compose down -v & docker-compose up -d, then check e2e test results 

@@ -83,7 +83,7 @@ services:
         # A small delay can sometimes help ensure all backend initializations are complete.
         sleep 5 && 
         echo 'Backend should be up. Running E2E tests...' &&
-        pytest . -v -s
+        pytest . -v -s --tb=short 
       "
     # No volumes needed if Dockerfile copies all necessary files and tests don't write persistent output here
 
