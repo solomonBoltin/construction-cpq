@@ -1,4 +1,4 @@
-FROM node:18-alpine
+FROM node:24-alpine
 
 # Install Java runtime for OpenAPI Generator CLI
 RUN apk add --no-cache openjdk11-jre
