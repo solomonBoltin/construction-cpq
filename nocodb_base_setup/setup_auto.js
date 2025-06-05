@@ -46,9 +46,9 @@ const CONFIG = {
     
     // File paths
     generated: {
-        swaggerJsonPath: process.env.SWAGGER_JSON_PATH || './gen/swagger.json',
-        tokenPath: process.env.TOKEN_PATH || './gen/token.txt',
-        apiClientOutputDir: process.env.API_CLIENT_OUTPUT_DIR || './gen/generated-client',
+        swaggerJsonPath: process.env.SWAGGER_JSON_PATH || './generated/swagger.json',
+        tokenPath: process.env.TOKEN_PATH || './generated/token.txt',
+        apiClientOutputDir: process.env.API_CLIENT_OUTPUT_DIR || './generated/generated-client',
         projectName: process.env.PROJECT_NAME || 'nocodb-cpq-client'
     }
 };
