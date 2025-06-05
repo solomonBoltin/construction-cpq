@@ -387,3 +387,11 @@ in tests create unit types only if not existed
 Next Steps:
 - run e2e tests, check logs, iterate until evything is good 
 use docker-compose down -v & docker-compose up --build -d, then check e2e test results 
+
+
+
+1. nocodb setup creates swagger.json in ./../generated_client, then it runs openapi call to make it cpq_client (also in ./../generate_client), also it saves api_token.txt with api_token
+2. js_e2e_tests installs the cpq_client and runs it using the api key 
+3. js_e2e_tests checks basic crud for diffrent object 
+4. it then creates full qalculated quote tests that creates material, products, variation and quote and uses the python api to request calculation and verifies it 
+5. commit clean version with 

@@ -1,5 +1,8 @@
 FROM node:18-alpine
 
+# Install Java runtime for OpenAPI Generator CLI
+RUN apk add --no-cache openjdk11-jre
+
 WORKDIR /usr/src/app
 
 COPY package*.json ./

@@ -133,6 +133,10 @@ services:
 
       BASE_TITLE: "${BASE_TITLE:-Base1}"
       SOURCE_TITLE: "${SOURCE_TITLE:-Base1 PG Source}"
+    volumes:
+      - ./nocodb_base_setup/gen:/usr/src/app/gen 
+      - ./nocodb_base_setup/openapitools.json:/usr/src/app/openapitools.json
+      
     depends_on:
       backend:
         condition: service_healthy
