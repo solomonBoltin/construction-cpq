@@ -1,6 +1,31 @@
-version: '3.8'
-
 services:
+  cpq_traefik:
+    image: traefik:v3.3
+    container_name: cpq_traefik
+    restart: unless-stopped
+    command:
+      - "--log.level=${TRAEFIK_LOG_LEVEL:-INFO}"
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--providers.docker.exposedbydefault=false"
+
+
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8080:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - ./certs:/etc/certs:ro
+    networks:
+      - traefik-network
+
+    deploy:
+      replicas: ${TRAEFIK_REPLICAS:-0} 
+      # 0 means treafik shouldent run, in deployment we use an external traefik so we set here to 0
+
   cpq_db:
     image: postgres:15-alpine
     container_name: cpq_postgres_db
@@ -22,7 +47,7 @@ services:
       retries: 5
   
     networks:
-      - cpq_network
+      - traefik-network
     
 
   backend:
@@ -56,7 +81,7 @@ services:
       retries: 5
       start_period: 30s
     networks:
-      - cpq_network
+      - traefik-network
 
   e2e_tests:
     build:
@@ -89,31 +114,54 @@ services:
 
     restart: "no" 
     networks:
-      - cpq_network
+      - traefik-network
 
   cpq_nocodb_app:
     image: nocodb/nocodb:latest
     container_name: cpq_nocodb_app
     ports:
-      - "${NC_PORT}:8080" 
+      - "${NC_PORT}:8080"
     environment:
       NC_AUTH_JWT_SECRET: "${NC_AUTH_JWT_SECRET}"
-      NC_PUBLIC_URL: "${NC_PUBLIC_URL}"
+      NC_PUBLIC_URL: "https://${NC_PUBLIC_URL}"
       NC_ADMIN_EMAIL: "${NC_ADMIN_EMAIL}"
       NC_ADMIN_PASSWORD: "${NC_ADMIN_PASSWORD}"
       NC_TOOL_DIR: "/usr/app/data/"
+    labels:
+      - "traefik.enable=true"
+
+      # Localhost 
+      - "traefik.http.routers.cpq-local.rule=Host(`${NC_LOCAL_URL}`)"
+      - "traefik.http.routers.cpq-local.entrypoints=web"
+      - "traefik.http.routers.cpq-local.service=cpq_nocodb_app"
+
+      # HTTP
+      - "traefik.http.routers.cpq-http.rule=Host(`${NC_PUBLIC_URL}`)"
+      - "traefik.http.routers.cpq-http.entrypoints=web"
+      - "traefik.http.routers.cpq-http.service=cpq_nocodb_app"
+
+      # HTTPS
+      - "traefik.http.routers.cpq-https.rule=Host(`${NC_PUBLIC_URL}`)"
+      - "traefik.http.routers.cpq-https.entrypoints=websecure"
+      - "traefik.http.routers.cpq-https.tls=true"
+      - "traefik.http.routers.cpq-https.service=cpq_nocodb_app"
+      - "traefik.http.routers.cpq-https.tls.certresolver=myresolver"
+
+      - "traefik.http.services.cpq_nocodb_app.loadbalancer.server.port=8080"
+
 
     volumes:
       - nocodb_data:/usr/app/data/
 
     healthcheck:
-      test: ["CMD-SHELL", "curl --silent --fail ${NC_PUBLIC_URL}/api/v1/health || exit 1"]
+      test: ["CMD-SHELL", "curl --silent --fail http://localhost:8080/api/v1/health || exit 1"] # checking nocodb port (not the exposed one cause running in container) 
       interval: 15s
       timeout: 10s 
       retries: 5
       start_period: 45s 
     networks:
-      - cpq_network
+      - traefik-network
+
     restart: unless-stopped
 
   # Automatically creates the base and our pg source so it can be viewed and edited in nocodb
@@ -121,7 +169,7 @@ services:
     build: ./nocodb_base_setup 
     container_name: nocodb_base_setup
     environment:
-      NOCODB_BASE_URL: "http://cpq_nocodb_app:${NC_PORT}"
+      NOCODB_BASE_URL: "http://cpq_nocodb_app:8080" # This is the internal URL used by the setup script
       NOCODB_EMAIL: "${NC_ADMIN_EMAIL}"
       NOCODB_PASSWORD: "${NC_ADMIN_PASSWORD}"
       
@@ -143,14 +191,16 @@ services:
       cpq_nocodb_app:
         condition: service_healthy
     networks:
-      - cpq_network
+      - traefik-network
     # restart: on-failure
   
 
 
 networks:
-  cpq_network:
-    driver: bridge
+  traefik-network:
+    external: true
+
+
 volumes:
   postgres_data:
   nocodb_data:
