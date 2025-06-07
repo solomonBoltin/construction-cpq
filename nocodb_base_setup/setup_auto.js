@@ -507,6 +507,9 @@ async function runAutomation() {
         }        // Step 5: Save Swagger JSON
         // Ensure base.id and apiToken are available
         if (base && base.id && apiToken) {
+            // sleep for a short duration to ensure the base is ready
+            console.log(`\n⏳ Waiting for base to be ready before saving Swagger JSON...`);
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds
             await saveSwaggerJson(base.id, apiToken);
             
             // Step 6: Generate API client from the Swagger JSON
@@ -532,7 +535,7 @@ async function runAutomation() {
             console.log(`  Source: Not created or found in this run (as base existed).`);
         }
         console.log(`  NocoDB URL: ${CONFIG.nocodb.baseUrl}/dashboard/#/base/${base.id}`);
-        console.log(`  API Client: Generated in ./generated-client directory`);
+        console.log(`  API Client: Generated in ${CONFIG.generated.apiClientOutputDir}`);
 
 
         return {
