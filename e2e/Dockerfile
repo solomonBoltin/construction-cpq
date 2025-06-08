@@ -8,11 +8,14 @@ COPY package*.json ./
 # Install dependencies
 RUN npm install
 
-# Copy main application file
+# Copy all test files and helpers
 COPY main.js ./
+COPY test-runner.js ./
+COPY test-helpers.js ./
+COPY tests/ ./tests/
 
 # Set the command to run the API client
 # CMD ["npm install ./generated/generated-client && node main.js"]
 
-# cmd to sleep for ever
+# Default command (can be overridden in docker-compose)
 CMD ["sh", "-c", "while true; do sleep 1000; done"]

@@ -395,3 +395,30 @@ use docker-compose down -v & docker-compose up --build -d, then check e2e test r
 3. js_e2e_tests checks basic crud for diffrent object 
 4. it then creates full qalculated quote tests that creates material, products, variation and quote and uses the python api to request calculation and verifies it 
 5. commit clean version with 
+
+
+
+
+decisions:
+go full developing 
+api crud all models 
+seprate to files in /api directory 
+e2e in js with client generated with generativ ai (basied on api)
+e2e: js client (cpq_client.product.all)
+e2e_test (crud( unit types, materials, products, all models ))
+test postmaster_horizonatl_100_ft 
+test pip_100_ft
+
+
+
+stage 1:
+- We have models created and synced into nocodb 
+
+stage 2:
+- api and client for full crud for all models
+- tests for real world scenarios like postmaster_horizontal_100_ft and pip_100_ft using api for creating the resource models and generating the quote and calculations
+
+
+stage 3:
+- ui uses client to show a catalog with entries and evrything.
+
