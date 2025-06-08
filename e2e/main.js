@@ -1,22 +1,23 @@
 // main.js
 const fs = require('fs');
-const path = require('path'); // Added path module
-const ApiClient = require('nocodb-cpq-client');
-const { runAllTests } = require('./test-runner'); // Import the test runner
+const path = require('path');
+// const ApiClient = require('nocodb-cpq-client'); // Old client
+const cpqClient = require('./cpq_backend_client'); // New CPQ client
+const { runAllTests } = require('./test-runner');
 
+// Configure the client - This section might be simplified or removed if
+// cpq_backend_client.js handles base URL and auth internally or via env vars directly.
+// const client = new ApiClient.ApiClient(); // Old client instantiation
+// client.basePath = process.env.NOCODB_BASE_URL || 'http://localhost:8082'; // Old base path
 
-// Configure the client
-const client = new ApiClient.ApiClient();
-// Use the NOCODB_BASE_URL environment variable or default to localhost
-client.basePath = process.env.NOCODB_BASE_URL || 'http://localhost:8082';
-
-// get token from ./generated/token.txt
-// Corrected token path to be relative to the e2e directory
+// Token handling might also be managed by cpq_backend_client or passed to its methods.
+// For now, we assume the new client methods can accept a token if needed, or it's handled by the request function
+/*
 const tokenPath = path.join(__dirname, 'generated', 'token.txt');
 let token = '';
 if (fs.existsSync(tokenPath)) {
   token = fs.readFileSync(tokenPath, 'utf8').trim();
-  console.log('Token loaded successfully.'); // Token value removed from log for security
+  console.log('Token loaded successfully.');
 } else {
   console.error('Token file not found:', tokenPath);
   process.exit(1);
@@ -25,15 +26,21 @@ if (fs.existsSync(tokenPath)) {
 client.defaultHeaders = {
   'xc-token': token,
 };
+*/
 
-// Use the API
-const api = new ApiClient.ProductApi(client);
+// Use the API - Example with the new client (adjust as needed)
+// const api = new ApiClient.ProductApi(client); // Old API instantiation
 
 async function main() {
   try {
-    console.log('Running main application logic...');
-    const result = await api.productCount();
-    console.log('API Response from productCount:', result);
+    console.log('Running main application logic using new cpqClient...');
+    // Example: Listing products using the new client
+    // Adjust the call based on actual methods and if a token is needed for this specific call
+    const products = await cpqClient.product.list(); 
+    console.log('API Response from cpqClient.product.list():', products.length > 0 ? `${products.length} products found.` : 'No products found or empty list.');
+    if (products.length > 0) {
+        console.log('First product:', products[0]);
+    }
     console.log('Main application logic finished.\n');
 
     // Run E2E tests after main logic

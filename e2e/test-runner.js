@@ -4,7 +4,8 @@ const path = require('path');
 
 // Import all test files
 const unitTypeCrudTest = require('./tests/unit-type-crud-test');
-
+const productCrudTest = require('./tests/product-crud-test'); // Add this line
+const postmasterHorizontal100ftTest = require('./tests/postmaster-h')
 async function runAllTests() {
     console.log('🚀 Starting E2E Test Suite...\n');
     
@@ -13,7 +14,9 @@ async function runAllTests() {
     const results = [];
 
     const tests = [
-        { name: 'Unit Type CRUD Test', testFunction: unitTypeCrudTest }
+        { name: 'Unit Type CRUD Test', testFunction: unitTypeCrudTest },
+        { name: 'Product CRUD Test', testFunction: productCrudTest },
+        { name: 'Postmaster Horizontal 100ft Test', testFunction: postmasterHorizontal100ftTest },
     ];
 
     for (const test of tests) {
@@ -26,6 +29,10 @@ async function runAllTests() {
         } catch (error) {
             console.error(`❌ FAILED: ${test.name}`);
             console.error(`   Error: ${error.message}\n`);
+            // traceback for debugging
+            if (error.stack) {
+                console.error(`   Stack Trace: ${error.stack}\n`);
+            }
             failedTests++;
             results.push({ name: test.name, status: 'FAILED', error: error.message });
         }
