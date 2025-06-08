@@ -174,7 +174,7 @@ class Product(ProductBase, table=True):
 class ProductMaterialBase(SQLModel):
     product_id: int = Field(foreign_key="product.id")
     material_id: int = Field(foreign_key="material.id")
-    quantity_of_material_base_units_per_product_unit: Decimal = Field(max_digits=10, decimal_places=3)
+    quantity_of_material_base_units_per_product_unit: Decimal = Field(max_digits=50, decimal_places=25)
 
 class ProductMaterial(ProductMaterialBase, table=True):
     __tablename__ = "product_material"

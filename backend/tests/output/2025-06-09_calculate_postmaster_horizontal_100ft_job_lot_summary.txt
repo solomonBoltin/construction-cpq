@@ -1,0 +1,81 @@
+--- Test Summary for: calculate_postmaster_horizontal_100ft_job_lot ---
+Executed on: 2025-06-09 00:08:22
+
+--- Mock Quote Overview (Input) ---
+Quote: Test Postmaster-H Quote (ID: 1)
+  Config: Postmaster Horizontal Config (ID: 1)
+    Sales Commission Rate: 7%
+    Franchise Fee Rate: 4%
+    Margin Rate: 30%
+    Tax Rate: 8.5%
+    Additional Fixed Fees: 0.00
+  Product Entries:
+    Entry ID: 1
+      Product: Postmaster Horizontal Fence (ID: 1)
+      Quantity of Product Units (Sections): 16.66666666666666666666666667
+  Product: Postmaster Horizontal Fence (ID: 1)
+    Base Labor per Section: 0
+    Base Materials (per section):
+      - 11' Postmaster: 1 each @ 27.06/1 each
+      - Hardware - 2.25" Galvanized Ring Shank Nails: 24.00000000000000000000000000 each @ 0.01/1 each
+      - Concrete: 1.5 bag @ 5.35/1 bag
+      - SYP: 0.5 each @ 9.18/1 each
+    Variation Groups:
+      Group: Fence Height (Required: True, Type: single_choice)
+        Option: 8ft Height
+          Additional Labor per Section: 78.0
+          Materials Added/Modified (per section):
+            - JPC: 22 each
+      Group: Cap (Required: False, Type: single_choice)
+        Option: Yes
+          Additional Labor per Section: 6.0
+          Materials Added/Modified (per section):
+            - JPC: 0.5 each
+        Option: No
+          Additional Labor per Section: 0.00
+      Selected Variations:
+        - Fence Height: 8ft Height
+        - Cap: No
+
+--- Calculated Quote (Output) ---
+Calculated Quote (ID: None, For Quote ID: 1)
+  Total Material Cost: 2480.25
+  Total Labor Cost: 1300.00
+  Cost of Goods Sold (COGS): 3780.25
+  Applied Rates & Fees:
+    - Name: Sales Commission
+      Type: fee_on_cogs
+      Rate Value: 0.0700
+      Applied Amount: 264.62
+    - Name: Franchise Fee
+      Type: fee_on_cogs
+      Rate Value: 0.0400
+      Applied Amount: 151.21
+    - Name: Margin
+      Type: margin
+      Rate Value: 0.3000
+      Applied Amount: 1798.32
+  Subtotal Before Tax: 5994.40
+  Tax Amount: 509.52
+  Final Price: 6503.92
+  Bill of Materials:
+    - Material: 11' Postmaster
+      Quantity: 16.6667 each
+      Unit Cost: 27.06
+      Total Cost: 451.00
+    - Material: Hardware - 2.25" Galvanized Ring Shank Nails
+      Quantity: 400.0000 each
+      Unit Cost: 0.01
+      Total Cost: 4.00
+    - Material: Concrete
+      Quantity: 25.0000 bag
+      Unit Cost: 5.35
+      Total Cost: 133.75
+    - Material: SYP
+      Quantity: 8.3333 each
+      Unit Cost: 9.18
+      Total Cost: 76.50
+    - Material: JPC
+      Quantity: 366.6667 each
+      Unit Cost: 4.95
+      Total Cost: 1815.00

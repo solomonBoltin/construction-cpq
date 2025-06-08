@@ -4,7 +4,7 @@ import logging
 
 from app.database import create_db_and_tables
 # Import your API routers here when they are created, e.g.:
-from app.api import router as api_router # Import the router from api.py
+from app.api_setup import router as api_router # Import the router from api.py
 from app.config import settings  # Import settings for configuration
 
 

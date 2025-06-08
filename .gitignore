@@ -1,6 +1,10 @@
-
 **/node_modules/
 **/__pycache__/
 **/dist/
 **/generated/
 **/*logs.txt
+# Python virtual environment
+.venv/
+venv/
+backend/.venv/
+backend/venv/
