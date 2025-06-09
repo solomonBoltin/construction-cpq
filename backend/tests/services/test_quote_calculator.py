@@ -284,31 +284,38 @@ def test_calculate_and_save_quote_with_variation_material_change(quote_calculato
     result = quote_calculator.calculate_and_save_quote(1, mock_session)
 
     # --- Assertions ---
-    # Base Material: (2.0 base - 0.5 variation) * 10 cost = 1.5 * 10 = 15
-    # Added Material: 1.0 variation * 5 cost = 5
-    # Total Material Cost = 15 + 5 = 20
+    # Original Base Material: 2.0 units
+    # Variation reduces Base Material by 0.5 units. Net Base Material needed = 2.0 - 0.5 = 1.5 units.
+    # Variation adds Added Material by 1.0 units. Net Added Material needed = 1.0 units.
+
+    # With math.ceil rounding for quantities:
+    # Base Material quantity: math.ceil(1.5) = 2 units.
+    # Base Material cost: 2 units * 10 cost/unit = 20.
+    # Added Material quantity: math.ceil(1.0) = 1 unit.
+    # Added Material cost: 1 unit * 5 cost/unit = 5.
+    # Total Material Cost = 20 (Base) + 5 (Added) = 25.
 
     # Base Labor: 20
     # Variation Labor: 5
     # Total Labor Cost = 20 + 5 = 25
     
-    # COGS = 20 (material) + 25 (labor) = 45
+    # COGS = 25 (material) + 25 (labor) = 50
 
-    assert final_quantize_decimal(result.total_material_cost) == final_quantize_decimal(D("20"))
+    assert final_quantize_decimal(result.total_material_cost) == final_quantize_decimal(D("25"))
     assert final_quantize_decimal(result.total_labor_cost) == final_quantize_decimal(D("25"))
-    assert final_quantize_decimal(result.cost_of_goods_sold) == final_quantize_decimal(D("45"))
-    assert final_quantize_decimal(result.final_price) == final_quantize_decimal(D("45"))
+    assert final_quantize_decimal(result.cost_of_goods_sold) == final_quantize_decimal(D("50"))
+    assert final_quantize_decimal(result.final_price) == final_quantize_decimal(D("50"))
 
     assert len(result.bill_of_materials_json) == 2
     
     base_material_bom = next(b for b in result.bill_of_materials_json if b.material_name == "Base Material")
     added_material_bom = next(b for b in result.bill_of_materials_json if b.material_name == "Added Material")
 
-    assert quantize_decimal(base_material_bom.quantity) == quantize_decimal(D("1.5"))
-    assert final_quantize_decimal(base_material_bom.total_cost) == final_quantize_decimal(D("15"))
+    assert quantize_decimal(base_material_bom.quantity) == quantize_decimal(D("2")) # Rounded up from 1.5
+    assert final_quantize_decimal(base_material_bom.total_cost) == final_quantize_decimal(D("20")) # 2 * 10
     
-    assert quantize_decimal(added_material_bom.quantity) == quantize_decimal(D("1.0"))
-    assert final_quantize_decimal(added_material_bom.total_cost) == final_quantize_decimal(D("5"))
+    assert quantize_decimal(added_material_bom.quantity) == quantize_decimal(D("1")) # Stays 1
+    assert final_quantize_decimal(added_material_bom.total_cost) == final_quantize_decimal(D("5")) # 1 * 5
 
     mock_session.add.assert_any_call(result) # Check that our object was added
     mock_session.commit.assert_called_once()

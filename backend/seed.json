@@ -30,6 +30,15 @@
       "base_unit_type_name": "Each"
     },
     {
+      "name": "JPC 1x6x8 Raw Picket",
+      "description": "Japanese Cedar Picket, 1x6x8, Raw",
+      "cost_per_supplier_unit": 5.40,
+      "supplier_unit_type_name": "Each",
+      "quantity_in_supplier_unit": 1,
+      "base_unit_type_name": "Each",
+      "cull_rate": 0.05
+    },
+    {
       "name": "Concrete Mix 80lb",
       "description": "Standard 80lb bag of concrete mix",
       "cost_per_supplier_unit": 7.00,

@@ -1,5 +1,5 @@
 --- Test Summary for: calculate_postmaster_horizontal_100ft_job_lot ---
-Executed on: 2025-06-09 22:07:05
+Executed on: 2025-06-09 16:13:27
 
 --- Mock Quote Overview (Input) ---
 Quote: Test Postmaster-H Quote - 6ft H, 100ft Job Lot (ID: 1)
@@ -16,12 +16,12 @@ Quote: Test Postmaster-H Quote - 6ft H, 100ft Job Lot (ID: 1)
   Product: Postmaster Horizontal Fence - 6ft H - 8ft W (ID: 1)
     Base Labor per Section: 64.00
     Base Materials (per section):
-      - 8' Postmaster: 1 each @ 18.01/1 each
-      - JPC 1x6x8 Raw Picket: 12 each @ 5.40/1 each
-      - JPC 2x4x12 Raw Rail: 0.5 each @ 12.50/1 each
-      - SYP 2x6x16 Color Treated Kickboard: 0.5 each @ 12.45/1 each
-      - Hardware - 2.25" Galvanized Ring Shank Nails: 400 each @ 0.01/1 each
-      - Concrete: 1 bag @ 5.35/1 bag
+      - 8' Postmaster: 1 each @ 19.54/1 each
+      - JPC 1x6x8 Raw Picket: 12.60 each @ 5.858730158730158730158730159/1 each
+      - JPC 2x4x12 Raw Rail: 0.5 each @ 13.56/1 each
+      - SYP 2x6x16 Color Treated Kickboard: 0.5 each @ 13.50/1 each
+      - Hardware - 2.25" Galvanized Ring Shank Nails: 434 each @ 0.01/1 each
+      - Concrete: 1 bag @ 5.80/1 bag
     Variation Groups:
       Group: Fence Height (Required: True, Type: single_choice)
         Option: 6ft Height
@@ -39,48 +39,47 @@ Quote: Test Postmaster-H Quote - 6ft H, 100ft Job Lot (ID: 1)
 
 --- Calculated Quote (Output) ---
 Calculated Quote (ID: None, For Quote ID: 1)
-  Total Material Cost: 1348.45
+  Total Material Cost: 1462.88
   Total Labor Cost: 800.00
-  Cost of Goods Sold (COGS): 2148.45
+  Cost of Goods Sold (COGS): 2262.88
   Applied Rates & Fees:
     - Name: Sales Commission
       Type: fee_on_cogs
       Rate Value: 0.0700
-      Applied Amount: 150.39
+      Applied Amount: 158.40
     - Name: Franchise Fee
       Type: fee_on_cogs
       Rate Value: 0.0400
-      Applied Amount: 85.94
+      Applied Amount: 90.52
     - Name: Margin
       Type: margin
       Rate Value: 0.3000
-      Applied Amount: 1022.05
-  Subtotal Before Tax: 3406.83
-  Tax Amount: 289.58
-  Final Price: 3696.41
+      Applied Amount: 1076.48
+  Subtotal Before Tax: 3588.27
+  Tax Amount: 305.00
+  Final Price: 3893.28
   Bill of Materials:
     - Material: 8' Postmaster
-      Quantity: 12.5 each
-      Unit Cost: 18.01
-      Total Cost: 225.13
+      Quantity: 12.5000 each
+      Unit Cost: 19.54
+      Total Cost: 244.25
     - Material: JPC 1x6x8 Raw Picket
-      Quantity: 157.500 each
-      Unit Cost: 5.40
-      Total Cost: 850.50
-      Cull Units: 7.5000 each
+      Quantity: 157.5000 each
+      Unit Cost: 5.86
+      Total Cost: 922.75
     - Material: JPC 2x4x12 Raw Rail
-      Quantity: 6.25 each
-      Unit Cost: 12.50
-      Total Cost: 78.13
+      Quantity: 6.2500 each
+      Unit Cost: 13.56
+      Total Cost: 84.75
     - Material: SYP 2x6x16 Color Treated Kickboard
-      Quantity: 6.25 each
-      Unit Cost: 12.45
-      Total Cost: 77.81
+      Quantity: 6.2500 each
+      Unit Cost: 13.50
+      Total Cost: 84.38
     - Material: Hardware - 2.25" Galvanized Ring Shank Nails
-      Quantity: 5000.0 each
+      Quantity: 5425.0000 each
       Unit Cost: 0.01
-      Total Cost: 50.00
+      Total Cost: 54.25
     - Material: Concrete
-      Quantity: 12.5 bag
-      Unit Cost: 5.35
-      Total Cost: 66.88
+      Quantity: 12.5000 bag
+      Unit Cost: 5.80
+      Total Cost: 72.50

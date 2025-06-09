@@ -7,7 +7,7 @@ from typing import List, Optional, Any, Type
 from decimal import Decimal
 from sqlmodel import Field, SQLModel, Relationship
 from sqlmodel.main import SQLModelMetaclass
-from sqlalchemy import Column,  Text, func, UniqueConstraint # Add func and UniqueConstraint imports
+from sqlalchemy import Column, Float, ForeignKey, Integer, String, Boolean, Text, func, UniqueConstraint # Add func and UniqueConstraint imports
 
 
 class ColumnCloningMetaclass(SQLModelMetaclass):
@@ -90,9 +90,13 @@ class BillOfMaterialEntry(PydanticBaseModel):
     total_cost: Decimal # Changed from float
     # Add unit_name for clarity in BOM
     unit_name: Optional[str] = None
+    cull_units: Optional[Decimal] = None # Added cull_units
+    leftovers: Optional[Decimal] = None # Added leftovers
 
-    @field_serializer('quantity', 'unit_cost', 'total_cost', when_used='json')
-    def serialize_decimals_to_str(self, v: Decimal):
+    @field_serializer('quantity', 'unit_cost', 'total_cost', 'cull_units', 'leftovers', when_used='json')
+    def serialize_decimals_to_str(self, v: Optional[Decimal]):
+        if v is None:
+            return None
         return str(v)
 
 
@@ -152,6 +156,7 @@ class Material(MaterialBase, table=True):
     
     product_materials: List["ProductMaterial"] = Relationship(back_populates="material")
     variation_option_materials: List["VariationOptionMaterial"] = Relationship(back_populates="material")
+    cull_rate: Optional[float] = Field(default=0.0) # Added cull_rate property
 
 
 class ProductBase(SQLModel):
@@ -240,6 +245,7 @@ class QuoteConfigBase(SQLModel):
     sales_commission_rate: Decimal = Field(default=Decimal("0.00"), max_digits=5, decimal_places=4)
     franchise_fee_rate: Decimal = Field(default=Decimal("0.00"), max_digits=5, decimal_places=4)
     additional_fixed_fees: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+    round_up_materials: bool = Field(default=True) # New field
 
 class QuoteConfig(QuoteConfigBase, table=True):
     __tablename__ = "quote_config"

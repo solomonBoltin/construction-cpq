@@ -422,3 +422,8 @@ stage 2:
 stage 3:
 - ui uses client to show a catalog with entries and evrything.
 
+
+
+
+up next:
+ compare the postmaster test summery to the excel calcolator (need to see it calculates same amount and bom material amounts)

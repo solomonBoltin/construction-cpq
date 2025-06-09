@@ -2,6 +2,7 @@ from decimal import Decimal, ROUND_HALF_UP
 from typing import Dict, List, Tuple
 from datetime import datetime, timezone
 import logging
+import math # Add this import
 
 from sqlmodel import Session, select
 
@@ -92,11 +93,17 @@ class QuoteCalculator:
                         raise ValueError(f"Material or its base unit type not found for ProductMaterial id {pm.id}")
 
                     cost_per_base_unit = self._get_material_cost_per_base_unit(material)
-                    quantity_needed = (
+                    quantity_needed_for_product = (
                         pm.quantity_of_material_base_units_per_product_unit
                         * product_quantity
                     )
                     
+                    cull_units = Decimal(0)
+                    if material.cull_rate and material.cull_rate > 0:
+                        cull_units = quantity_needed_for_product * Decimal(str(material.cull_rate))
+                    
+                    total_quantity_needed = quantity_needed_for_product + cull_units
+
                     bom_key = (material.id, material.base_unit_type.name)
                     if bom_key not in bill_of_materials_aggregated:
                         bill_of_materials_aggregated[bom_key] = BillOfMaterialEntry(
@@ -105,14 +112,14 @@ class QuoteCalculator:
                             unit_cost=cost_per_base_unit,
                             total_cost=Decimal(0),
                             unit_name=material.base_unit_type.name,
+                            cull_units=Decimal(0) 
                         )
                     
-                    bill_of_materials_aggregated[bom_key].quantity += quantity_needed
-                    bill_of_materials_aggregated[bom_key].total_cost += (
-                        quantity_needed * cost_per_base_unit
-                    )
-                    total_material_cost_for_quote += quantity_needed * cost_per_base_unit
-
+                    bill_of_materials_aggregated[bom_key].quantity += total_quantity_needed
+                    if bill_of_materials_aggregated[bom_key].cull_units is None: # Ensure cull_units is initialized
+                        bill_of_materials_aggregated[bom_key].cull_units = Decimal(0)
+                    bill_of_materials_aggregated[bom_key].cull_units += cull_units
+                    # Total cost will be recalculated later after rounding quantities
 
                 # 2. Materials from selected variations for the product entry
                 for qpev in entry.selected_variations:
@@ -140,30 +147,59 @@ class QuoteCalculator:
                         cost_per_base_unit = self._get_material_cost_per_base_unit(
                             material
                         )
-                        quantity_added_or_removed = (
+                        quantity_added_or_removed_for_product = (
                             vom.quantity_of_material_base_units_added * product_quantity
                         )
 
+                        cull_units_variation = Decimal(0)
+                        if material.cull_rate and material.cull_rate > 0:
+                             # Apply cull rate only to added quantities, not removed (negative)
+                            if quantity_added_or_removed_for_product > 0:
+                                cull_units_variation = quantity_added_or_removed_for_product * Decimal(str(material.cull_rate))
+
+                        total_quantity_added_or_removed = quantity_added_or_removed_for_product + cull_units_variation
+
                         bom_key = (material.id, material.base_unit_type.name)
                         if bom_key not in bill_of_materials_aggregated:
-                             # This case should ideally not happen if material is only added/modified
-                             # but good to handle if a variation introduces a completely new material not in base
                             bill_of_materials_aggregated[bom_key] = BillOfMaterialEntry(
                                 material_name=material.name,
                                 quantity=Decimal(0),
                                 unit_cost=cost_per_base_unit,
                                 total_cost=Decimal(0),
                                 unit_name=material.base_unit_type.name,
+                                cull_units=Decimal(0)
                             )
                         
-                        bill_of_materials_aggregated[bom_key].quantity += quantity_added_or_removed
-                        bill_of_materials_aggregated[bom_key].total_cost += (
-                            quantity_added_or_removed * cost_per_base_unit
-                        )
-                        total_material_cost_for_quote += (
-                            quantity_added_or_removed * cost_per_base_unit
-                        )
+                        bill_of_materials_aggregated[bom_key].quantity += total_quantity_added_or_removed
+                        if bill_of_materials_aggregated[bom_key].cull_units is None: # Ensure cull_units is initialized
+                            bill_of_materials_aggregated[bom_key].cull_units = Decimal(0)
+                        bill_of_materials_aggregated[bom_key].cull_units += cull_units_variation
+                        # Total cost will be recalculated later
             
+            # Recalculate BOM entries with rounded quantities and update total material cost
+            total_material_cost_for_quote = Decimal(0) # Re-initialize before summing up rounded costs
+            for bom_entry in bill_of_materials_aggregated.values():
+                # Calculate leftovers before rounding up quantity
+                original_quantity = bom_entry.quantity
+                
+                if quote.quote_config.round_up_materials: # Check the flag
+                    rounded_quantity = Decimal(math.ceil(original_quantity))
+                    leftover_amount = rounded_quantity - original_quantity
+                    bom_entry.leftovers = quantize_decimal(leftover_amount) if leftover_amount > 0 else Decimal(0)
+                else:
+                    rounded_quantity = original_quantity # No rounding
+                    bom_entry.leftovers = Decimal(0) # No leftovers if not rounding up
+                
+                bom_entry.quantity = rounded_quantity
+
+                # Round up cull units separately for reporting, if needed, or keep as calculated
+                if bom_entry.cull_units is not None:
+                    bom_entry.cull_units = quantize_decimal(bom_entry.cull_units) # Or math.ceil if whole units are culled
+
+                bom_entry.total_cost = bom_entry.quantity * bom_entry.unit_cost
+                bom_entry.total_cost = final_quantize_decimal(bom_entry.total_cost) 
+                total_material_cost_for_quote += bom_entry.total_cost
+
             # Finalize BOM list
             final_bom_list = [
                 bom_entry for bom_entry in bill_of_materials_aggregated.values()
