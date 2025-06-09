@@ -1,7 +1,7 @@
 # test_quote_calculator_postmaster_h.py
 
 import pytest  # Add pytest import
-from decimal import Decimal
+from decimal import Decimal, ROUND_HALF_UP # Added ROUND_HALF_UP
 from unittest.mock import MagicMock, patch
 import logging  # Add logging import
 import os  # Added for file operations
@@ -28,7 +28,12 @@ from app.services.quote_calculator import (
     QuoteCalculator,
     final_quantize_decimal,
     quantize_decimal,
-)  # Added quantize_decimal
+) 
+from tests.model_str_format import (
+    str_format_product,
+    str_format_quote,
+    str_format_calculated_quote,
+)
 
 
 # Helper to create Decimal with consistent precision for tests
@@ -51,149 +56,6 @@ def mock_session():
 
 # Get a logger instance for this test file
 logger = logging.getLogger(__name__)
-
-
-def format_product_for_log(product: Product, num_sections: Decimal) -> str:
-    """Formats Product details for readable logging."""
-    log_lines = [f"  Product: {product.name} (ID: {product.id})"]
-    log_lines.append(
-        f"    Base Labor per Section: {product.base_labor_cost_per_product_unit}"
-    )
-    log_lines.append("    Base Materials (per section):")
-    for pm in product.product_materials:
-        qty_per_section = pm.quantity_of_material_base_units_per_product_unit
-        # Adjust for materials where quantity is defined for the whole job (e.g., Nails)
-        if "Nails" in pm.material.name:  # A bit specific, but illustrates the point
-            qty_per_section = (
-                pm.quantity_of_material_base_units_per_product_unit
-                * num_sections
-                / num_sections
-            )  # effectively per job / num_sections
-        log_lines.append(
-            f"      - {pm.material.name}: {qty_per_section} {pm.material.base_unit_type.name} @ {pm.material.cost_per_supplier_unit}/{pm.material.quantity_in_supplier_unit} {pm.material.base_unit_type.name}"
-        )
-
-    log_lines.append("    Variation Groups:")
-    for group in product.variation_groups:
-        log_lines.append(
-            f"      Group: {group.name} (Required: {group.is_required}, Type: {group.selection_type})"
-        )
-        for option in group.options:
-            log_lines.append(f"        Option: {option.name}")
-            log_lines.append(
-                f"          Additional Labor per Section: {option.additional_labor_cost_per_product_unit}"
-            )
-            if option.variation_option_materials:
-                log_lines.append("          Materials Added/Modified (per section):")
-                for vom in option.variation_option_materials:
-                    log_lines.append(
-                        f"            - {vom.material.name}: {vom.quantity_of_material_base_units_added} {vom.material.base_unit_type.name}"
-                    )
-    return "\n".join(log_lines)  # Corrected to \n
-
-
-def format_quote_for_log(quote: Quote, num_sections: Decimal) -> str:
-    """Formats Quote details for readable logging."""
-    log_lines = [f"Quote: {quote.name} (ID: {quote.id})"]
-    log_lines.append(
-        f"  Config: {quote.quote_config.name} (ID: {quote.quote_config.id})"
-    )
-    log_lines.append(
-        f"    Sales Commission Rate: {quote.quote_config.sales_commission_rate:%}"
-    )
-    log_lines.append(
-        f"    Franchise Fee Rate: {quote.quote_config.franchise_fee_rate:%}"
-    )
-    log_lines.append(f"    Margin Rate: {quote.quote_config.margin_rate:%}")
-    log_lines.append(f"    Tax Rate: {quote.quote_config.tax_rate:%}")
-    log_lines.append(
-        f"    Additional Fixed Fees: {quote.quote_config.additional_fixed_fees}"
-    )
-
-    log_lines.append("  Product Entries:")
-    for entry in quote.product_entries:
-        log_lines.append(f"    Entry ID: {entry.id}")
-        log_lines.append(
-            f"      Product: {entry.product.name} (ID: {entry.product.id})"
-        )
-        log_lines.append(
-            f"      Quantity of Product Units (Sections): {entry.quantity_of_product_units}"
-        )
-        log_lines.append(
-            format_product_for_log(entry.product, num_sections)
-        )  # Log product details here
-        log_lines.append("      Selected Variations:")
-        for qpev in entry.selected_variations:
-            log_lines.append(
-                f"        - {qpev.variation_option.variation_group.name}: {qpev.variation_option.name}"
-            )
-    return "\n".join(log_lines)  # Corrected to \n
-
-
-def format_calculated_quote_for_log(calculated_quote: CalculatedQuote) -> str:
-    """Formats CalculatedQuote details for readable logging."""
-    log_lines = [
-        f"Calculated Quote (ID: {calculated_quote.id}, For Quote ID: {calculated_quote.quote_id})"
-    ]
-    log_lines.append(
-        f"  Total Material Cost: {calculated_quote.total_material_cost:.2f}"
-    )
-    log_lines.append(f"  Total Labor Cost: {calculated_quote.total_labor_cost:.2f}")
-    log_lines.append(
-        f"  Cost of Goods Sold (COGS): {calculated_quote.cost_of_goods_sold:.2f}"
-    )
-    log_lines.append("  Applied Rates & Fees:")
-    if isinstance(
-        calculated_quote.applied_rates_info_json, list
-    ):  # Check if it's a list of dicts or objects
-        for rate_info_data in calculated_quote.applied_rates_info_json:
-            if isinstance(rate_info_data, dict):
-                rate_info = AppliedRateInfoEntry(
-                    **rate_info_data
-                )  # Convert dict to Pydantic model
-            else:  # Assuming it's already an AppliedRateInfoEntry object or similar
-                rate_info = rate_info_data
-            log_lines.append(f"    - Name: {rate_info.name}")
-            log_lines.append(f"      Type: {rate_info.type}")
-            log_lines.append(
-                f"      Rate Value: {Decimal(rate_info.rate_value):.4f}"
-            )  # Ensure Decimal conversion for formatting
-            log_lines.append(
-                f"      Applied Amount: {Decimal(rate_info.applied_amount):.2f}"
-            )
-    log_lines.append(
-        f"  Subtotal Before Tax: {calculated_quote.subtotal_before_tax:.2f}"
-    )
-    log_lines.append(f"  Tax Amount: {calculated_quote.tax_amount:.2f}")
-    log_lines.append(f"  Final Price: {calculated_quote.final_price:.2f}")
-    log_lines.append("  Bill of Materials:")
-    if isinstance(calculated_quote.bill_of_materials_json, list):
-        for bom_entry_data in calculated_quote.bill_of_materials_json:
-            # Assuming bom_entry_data is a dict that can be validated into BillOfMaterialEntry
-            # For direct access if it's already a Pydantic model or similar dict structure:
-            bom_entry = (
-                BillOfMaterialEntry.model_validate(bom_entry_data)
-                if isinstance(bom_entry_data, dict)
-                else bom_entry_data
-            )
-
-            log_lines.append(f"    - Material: {bom_entry.material_name}")
-            log_lines.append(
-                f"      Quantity: {bom_entry.quantity} {bom_entry.unit_name}"
-            )
-            log_lines.append(f"      Unit Cost: {bom_entry.unit_cost:.2f}")
-            log_lines.append(f"      Total Cost: {bom_entry.total_cost:.2f}")
-            if bom_entry.cull_units is not None and bom_entry.cull_units > 0:
-                log_lines.append(
-                    f"      Cull Units: {bom_entry.cull_units} {bom_entry.unit_name}"
-                )
-            if bom_entry.leftovers is not None and bom_entry.leftovers > D(
-                "0"
-            ):  # Only log if there are leftovers
-                log_lines.append(
-                    f"      Leftovers: {bom_entry.leftovers} {bom_entry.unit_name}"
-                )
-    return "\n".join(log_lines)
 
 
 def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_session):
@@ -485,7 +347,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
 
     # Log the quote overview
     logger.info(
-        f"\n--- Mock Quote Overview (Input) ---\n{format_quote_for_log(mock_quote, NUM_SECTIONS)}"
+        f"\\n--- Mock Quote Overview (Input) ---\\n{str_format_quote(mock_quote, NUM_SECTIONS)}" # Added NUM_SECTIONS
     )
 
     # --- Call the method ---
@@ -496,7 +358,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
     # Log the calculated output
     if calculated_quote_result:
         logger.info(
-            f"\n--- Calculated Quote (Output) ---\n{format_calculated_quote_for_log(calculated_quote_result)}"
+            f"\\n--- Calculated Quote (Output) ---\\n{str_format_calculated_quote(calculated_quote_result)}"
         )
 
         # --- Output summary to file ---
@@ -522,9 +384,9 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
                 f"--- Test Summary for: {test_function_name} ---\n"
                 f"Executed on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
                 f"--- Mock Quote Overview (Input) ---\n"
-                f"{format_quote_for_log(mock_quote, NUM_SECTIONS)}\n\n"
+                f"{str_format_quote(mock_quote, NUM_SECTIONS)}\n\n"
                 f"--- Calculated Quote (Output) ---\n"
-                f"{format_calculated_quote_for_log(calculated_quote_result)}\n"
+                f"{str_format_calculated_quote(calculated_quote_result)}\n"
             )
 
             with open(file_path, "w") as f:
