@@ -58,7 +58,7 @@ def str_format_product(product: Product, num_sections: Decimal) -> str:
                             )
     return "\n".join(log_lines)
 
-def str_format_quote(quote: Quote, num_sections: Decimal) -> str:
+def str_format_quote(quote: Quote) -> str:
     """Formats Quote details for readable logging."""
     log_lines = [f"Quote: {quote.name} (ID: {quote.id})"]
     if hasattr(quote, 'quote_config') and quote.quote_config:

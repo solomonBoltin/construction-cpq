@@ -1,12 +1,12 @@
 # test_quote_calculator_postmaster_h.py
 
-import pytest  # Add pytest import
-from decimal import Decimal, ROUND_HALF_UP # Added ROUND_HALF_UP
+import pytest  
+from decimal import Decimal, ROUND_HALF_UP 
 from unittest.mock import MagicMock, patch
-import logging  # Add logging import
-import os  # Added for file operations
-import math  # Added math import
-from datetime import datetime  # Added for timestamp in filename
+import logging  
+import os 
+import math 
+from datetime import datetime  
 
 from app.models import (
     Material,
@@ -58,143 +58,72 @@ def mock_session():
 logger = logging.getLogger(__name__)
 
 
-def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_session):
+def test_bom_pm_horizontal_raw_6ft(quote_calculator, mock_session):
     """
-    Tests the quote calculation for a 100ft Postmaster Horizontal fence,
-    replicating the logic and values from the provided Excel sheet for a
-    6ft Height, 8ft Section Width, JPC Raw, SxS, No Cap, No Trim scenario.
-    This test uses "Job Lot" pricing.
+    Tests the QuoteCalculator for a Postmaster Horizontal Fence (Raw, 6ft H, 8ft W)
     """
-    # --- Test Configuration (Mirrors Excel Inputs for 6ft H, 8ft W section) ---
-    JOB_SIZE_FEET = D("100")
-    WOOD_TYPE = "JPC"  # Excel: jpc
-    FINISH = "Raw"  # Excel: raw
-    FENCE_TYPE_STYLE = "SxS"  # Excel: sxs
+    # --- Test Configuration ---
+    PRODUCT_SIZE_FEET = D("100")
+    FENCE_TYPE_STYLE = "SxS"  # Excel: sxs or BOB
     ADD_CAP = "no"  # Excel: Cap? no
     ADD_TRIM = "no"  # Excel: Trim? No
-    FENCE_HEIGHT = D("6")  # Excel: Height: 6
-    ORDER_TYPE = "Job Lot"  # Excel: Order Type job lot
+    ROUND_UP_MATERIALS = False
 
-    # --- Derived Configuration ---
-    # Section width depends on height: 8ft wide for 6ft high, 6ft wide for 8ft high
-    SECTION_WIDTH = D("8") if FENCE_HEIGHT == D("6") else D("6")  # Should be 8ft
-    NUM_SECTIONS = JOB_SIZE_FEET / SECTION_WIDTH  # Should be 100 / 8 = 12.5
-
-    # --- Mock Data Setup (Based on Excel 'Mat_Costs' and 'Sub_Labor' sheets) ---
-
+    # --- Mock Data Setup ---
     # 1. Mock UnitTypes
-    mock_unit_each = UnitType(id=1, name="each", category="Count")
     mock_unit_lf = UnitType(id=2, name="linear foot", category="Length")
-    mock_unit_bag = UnitType(id=3, name="bag", category="Volume")
-    mock_unit_box = UnitType(id=4, name="box", category="Count")
+    mock_unit_bag = UnitType(id=3, name="bag", category="Count")
 
-    # 2. Mock Materials (using "Job Lot" costs from Mat_Costs sheet,
-    #    Unit costs adjusted to yield Excel's "Cost/8' Section" when multiplied by QTY)
     materials_db = {
-        # Posts
-        "11' Postmaster": Material(
-            id=1,
-            name="11' Postmaster",
-            cost_per_supplier_unit=D("27.06"),
-            quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
-        ),  # Price from sheet
         "8' Postmaster": Material(
             id=2,
             name="8' Postmaster",
             cost_per_supplier_unit=D("18.01"),
             quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
+            base_unit_type=mock_unit_lf,
         ),  # Updated to sheet Job Lot price
-        # Pickets (1x6)
-        "JPC_Stained_1x6x6": Material(
-            id=3,
-            name="JPC 1x6x6 Stained Picket",
-            cost_per_supplier_unit=D("4.95"),
-            quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
-        ),  # Price from sheet
-        "JPC_Stained_1x6x8": Material(
-            id=4,
-            name="JPC 1x6x8 Stained Picket",
-            cost_per_supplier_unit=D("6.75"),
-            quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
-        ),  # Price from sheet
-        "JPC_Raw_1x6x6": Material(
-            id=5,
-            name="JPC 1x6x6 Raw Picket",
-            cost_per_supplier_unit=D("3.85"),
-            quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
-        ),  # Price from sheet
         "JPC_Raw_1x6x8": Material(
             id=6,
             name="JPC 1x6x8 Raw Picket",
             cost_per_supplier_unit=D("5.40"),
             quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
+            base_unit_type=mock_unit_lf,
             cull_rate=D("0.05"),
         ),  # Added cull_rate
-        # Rails / Trim (2x4)
-        "JPC_Stained_2x4x8": Material(
-            id=7,
-            name="JPC 2x4x8 Stained Rail",
-            cost_per_supplier_unit=D("11.25"),
-            quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
-        ),  # Price from sheet
-        "JPC_Stained_2x4x12": Material(
-            id=8,
-            name="JPC 2x4x12 Stained Rail",
-            cost_per_supplier_unit=D("14.50"),
-            quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
-        ),  # Price from sheet
         "JPC_Raw_2x4x8": Material(
             id=9,
             name="JPC 2x4x8 Raw Rail",
             cost_per_supplier_unit=D("9.00"),
             quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
+            base_unit_type=mock_unit_lf,
         ),  # Price from sheet
         "JPC_Raw_2x4x12": Material(
             id=10,
             name="JPC 2x4x12 Raw Rail",
             cost_per_supplier_unit=D("12.50"),
             quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
-        ),  # Updated to sheet Job Lot price
-        # Kick Board (SYP Color Treated)
-        "SYP_2x6x12": Material(
-            id=11,
-            name="SYP 2x6x12 Color Treated Kickboard",
-            cost_per_supplier_unit=D("9.18"),
-            quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
-        ),  # Price from sheet (Bulk)
+            base_unit_type=mock_unit_lf,
+        ),  
         "SYP_2x6x16": Material(
             id=12,
             name="SYP 2x6x16 Color Treated Kickboard",
             cost_per_supplier_unit=D("12.45"),
             quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
+            base_unit_type=mock_unit_lf,
         ),  # Updated to sheet price (Bulk)
-        # Cap (2x6) - JPC Raw for 6ft fence, if cap was yes
         "JPC_Raw_2x6x12": Material(
             id=13,
             name="JPC 2x6x12 Raw Cap Board",
             cost_per_supplier_unit=D("0.00"),
             quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
+            base_unit_type=mock_unit_lf,
         ),  # No price in sheet for this specific item Job Lot, placeholder for unselected option
-        # Hardware
         "Nails": Material(
             id=14,
             name='Hardware - 2.25" Galvanized Ring Shank Nails',
             cost_per_supplier_unit=D("0.01"),
             quantity_in_supplier_unit=D("1"),
-            base_unit_type=mock_unit_each,
+            base_unit_type=mock_unit_lf,
         ),  # Price from sheet
         "Concrete": Material(
             id=15,
@@ -205,72 +134,43 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
         ),  # Updated to sheet Job Lot price
     }
 
-    # 3. Mock Product: Postmaster Horizontal Fence - 6ft H - 8ft W
+    # 3. Mock Product
     mock_product = Product(
         id=1,
-        name="Postmaster Horizontal Fence - 6ft H - 8ft W",
+        name="Postmaster Horizontal Fence - 6ft H - Raw",
         base_labor_cost_per_product_unit=D(
-            "64.00"
+            "8.00" 
         ),  # Excel: Install/ft $8.00 * 8ft/section = $64.00/section
-        product_unit_type_id=mock_unit_each.id,  # Each section
+        product_unit_type_id=mock_unit_lf.id,  # Each section
         product_materials=[
             ProductMaterial(
                 material=materials_db["8' Postmaster"],
-                quantity_of_material_base_units_per_product_unit=D("1"),
+                quantity_of_material_base_units_per_product_unit=D("0.125"), # 8
             ),  # Excel QTY 1
             ProductMaterial(
-                material=materials_db[f"{WOOD_TYPE}_{FINISH}_1x6x8"],
-                quantity_of_material_base_units_per_product_unit=D("12"),
+                material=materials_db[f"JPC_Raw_1x6x8"],
+                quantity_of_material_base_units_per_product_unit=D("1.5"), # 12 
             ),  # Excel QTY 12, 5% cull
             ProductMaterial(
-                material=materials_db[f"{WOOD_TYPE}_{FINISH}_2x4x12"],
-                quantity_of_material_base_units_per_product_unit=D("0.5"),
+                material=materials_db["JPC_Raw_2x4x12"],
+                quantity_of_material_base_units_per_product_unit=D("0.0625"), # 0.5
             ),  # Excel QTY 0.5
             ProductMaterial(
                 material=materials_db["SYP_2x6x16"],
-                quantity_of_material_base_units_per_product_unit=D("0.5"),
+                quantity_of_material_base_units_per_product_unit=D("0.0625"), # 0.5
             ),  # Excel QTY 0.5
             ProductMaterial(
                 material=materials_db["Nails"],
-                quantity_of_material_base_units_per_product_unit=D("400"),
+                quantity_of_material_base_units_per_product_unit=D("50"), # 400
             ),  # To match Excel's $4.00
             ProductMaterial(
                 material=materials_db["Concrete"],
-                quantity_of_material_base_units_per_product_unit=D("1"),
+                quantity_of_material_base_units_per_product_unit=D("0.125") # 1
             ),  # Excel QTY 1
         ],
         variation_groups=[],
     )
 
-    # 4. Mock Variations
-    height_group = VariationGroup(
-        id=1,
-        name="Fence Height",
-        product_id=1,
-        selection_type="single_choice",
-        is_required=True,
-        options=[],
-    )
-
-    # 6ft Height Option (Base product is now 6ft, so no additional cost/material)
-    height_6ft_option = VariationOption(
-        id=1,
-        name="6ft Height",
-        variation_group_id=1,
-        additional_labor_cost_per_product_unit=D("0"),
-        variation_option_materials=[],
-    )
-    # 8ft Height Option (For completeness, though not used in this test)
-    height_8ft_option = VariationOption(
-        id=2,
-        name="8ft Height",
-        variation_group_id=1,
-        additional_labor_cost_per_product_unit=D(
-            "0"
-        ),  # Labor for 8ft would be different
-        variation_option_materials=[],  # Materials for 8ft would be different
-    )
-    height_group.options.extend([height_6ft_option, height_8ft_option])
 
     # Cap Variation
     cap_group = VariationGroup(
@@ -289,13 +189,66 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
             "0"
         ),  # Labor for cap from Excel if applicable
         variation_option_materials=[
-            # VariationOptionMaterial(material=materials_db[f"{WOOD_TYPE}_{FINISH}_2x6x12"], quantity_of_material_base_units_added=D("0")) # Cap material from Excel if applicable
+            #
         ],
     )
     cap_no_option = VariationOption(id=4, name="No", variation_group_id=2)
     cap_group.options.extend([cap_yes_option, cap_no_option])
+    
+    # Trim Variation
+    trim_group = VariationGroup(
+        id=3,
+        name="Trim",
+        product_id=1,
+        selection_type="single_choice",
+        is_required=False,
+        options=[],
+    )
+    trim_yes_option = VariationOption( 
+        id=5,
+        name="Yes",
+        
+        variation_group_id=3,
+        additional_labor_cost_per_product_unit=D(
+            "0"
+        ),  # Labor for trim from Excel if applicable
+        variation_option_materials=[
+            # VariationOptionMaterial(material=materials_db[f"{WOOD_TYPE}_{FINISH}_2x6x12"], quantity_of_material_base_units_added=D("0")) # Trim material from Excel if applicable
+        ],
+    )
+    trim_no_option = VariationOption(id=6, name="No", variation_group_id=3)
+    trim_group.options.extend([trim_yes_option, trim_no_option])
+    
+    # STyle Variation
+    style_group = VariationGroup(
+        id=4,
+        name="Style",
+        product_id=1,
+        selection_type="single_choice",
+        is_required=True,
+        options=[],
+    )
+    style_sxs_option = VariationOption(
+        id=7,
+        name="SxS",
+        variation_group_id=4,
+        additional_labor_cost_per_product_unit=D(
+            "0"
+        ),  # Labor for SxS from Excel if applicable
+        variation_option_materials=[],
+    )
+    style_bob_option = VariationOption(
+        id=8,
+        name="B.O.B.",
+        variation_group_id=4,
+        additional_labor_cost_per_product_unit=D(
+            "0"
+        ),  # Labor for B.O.B. from Excel if applicable
+        variation_option_materials=[],
+    )
+    style_group.options.extend([style_sxs_option, style_bob_option])
 
-    mock_product.variation_groups.extend([height_group, cap_group])
+    mock_product.variation_groups.extend([cap_group, trim_group, style_group])
 
     # 5. Mock Quote Configuration (matches Excel)
     mock_quote_config = QuoteConfig(
@@ -306,7 +259,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
         margin_rate=D("0.30"),  # Excel 30%
         additional_fixed_fees=D("0.00"),
         tax_rate=D("0.085"),  # Excel 8.5%
-        round_up_materials=False,  # Added for testing
+        round_up_materials= ROUND_UP_MATERIALS,
     )
 
     # 6. Mock Quote and Entries
@@ -315,18 +268,23 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
         quote_id=1,
         product_id=1,
         product=mock_product,
-        quantity_of_product_units=NUM_SECTIONS,  # 12.5 sections
+        quantity_of_product_units=PRODUCT_SIZE_FEET, 
         selected_variations=[],
     )
 
     # Link selected variations based on config
     selected_variations = [
         QuoteProductEntryVariation(
-            quote_product_entry_id=1, variation_option=height_6ft_option
-        ),  # Selected 6ft
-        QuoteProductEntryVariation(
             quote_product_entry_id=1,
             variation_option=cap_no_option if ADD_CAP == "no" else cap_yes_option,
+        ),
+        QuoteProductEntryVariation(
+            quote_product_entry_id=1,
+            variation_option=trim_no_option if ADD_TRIM == "no" else trim_yes_option,
+        ),
+        QuoteProductEntryVariation(
+            quote_product_entry_id=1,
+            variation_option=style_sxs_option if FENCE_TYPE_STYLE == "SxS" else style_bob_option,
         ),
     ]
     mock_quote_entry.selected_variations.extend(selected_variations)
@@ -347,7 +305,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
 
     # Log the quote overview
     logger.info(
-        f"\\n--- Mock Quote Overview (Input) ---\\n{str_format_quote(mock_quote, NUM_SECTIONS)}" # Added NUM_SECTIONS
+        f"\n--- Mock Quote Overview (Input) ---\n{str_format_quote(mock_quote)}" # Added NUM_SECTIONS
     )
 
     # --- Call the method ---
@@ -358,19 +316,13 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
     # Log the calculated output
     if calculated_quote_result:
         logger.info(
-            f"\\n--- Calculated Quote (Output) ---\\n{str_format_calculated_quote(calculated_quote_result)}"
+            f"\n--- Calculated Quote (Output) ---\n{str_format_calculated_quote(calculated_quote_result)}"
         )
 
         # --- Output summary to file ---
         try:
             current_date_str = datetime.now().strftime("%Y-%m-%d")
-            test_file_name = os.path.splitext(os.path.basename(__file__))[
-                0
-            ]  # e.g., test_quote_calculator_postmaster_h
-            # Construct a more specific name from the test function if possible, or use a generic one
-            # For this specific function, we can hardcode a part of it or derive it.
-            # Let's use the function name directly for clarity.
-            test_function_name = "calculate_postmaster_horizontal_100ft_job_lot"
+            test_function_name = "test_calculate_postmaster_horizontal_100ft_job_lot"
 
             output_dir = os.path.join(
                 os.path.dirname(os.path.dirname(__file__)), "output"
@@ -384,7 +336,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
                 f"--- Test Summary for: {test_function_name} ---\n"
                 f"Executed on: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}\n\n"
                 f"--- Mock Quote Overview (Input) ---\n"
-                f"{str_format_quote(mock_quote, NUM_SECTIONS)}\n\n"
+                f"{str_format_quote(mock_quote)}\n\n"
                 f"--- Calculated Quote (Output) ---\n"
                 f"{str_format_calculated_quote(calculated_quote_result)}\n"
             )
@@ -409,44 +361,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
     # COGS Per Foot: $22.63 => Job COGS: $22.63 * 100ft = $2263.00 (Or $1348.44 + $800.00 = $2263.05)
     expected_cogs = expected_material_cost_pre_tax + expected_labor_cost  # $2263.05
 
-    # Sales Commission 7% on COGS: $2263.05 * 0.07 = $158.4135 (Excel shows $2.68/ft * 100ft = $268.50. This is a major discrepancy. Excel calculates commission on a higher base or differently)
-    # Excel Sales Commission: $2.68/ft * 100ft = $268.50.
-    # Excel Franchise Fee: $1.53/ft * 100ft = $153.43.
-    # The Excel sheet's per-foot commission and franchise fees are not simple percentages of the COGS/ft.
-    # Let's use the Excel's total values for these fees.
-    expected_sales_commission_amount = D("268.50")  # From Excel (D32*B3)
-    expected_franchise_fee_amount = D("153.43")  # From Excel (D33*B3)
 
-    # Total Costs in Excel = COGS + Sales Commission + Franchise Fee
-    # $2263.05 + $268.50 + $153.43 = $2684.98 (Matches Excel D34*B3)
-    cost_base_for_margin_excel_logic = (
-        expected_cogs + expected_sales_commission_amount + expected_franchise_fee_amount
-    )
-
-    # Margin 30% in Excel: $11.51/ft * 100ft = $1150.71 (Excel D35*B3)
-    # Excel's margin is calculated such that Price Per LF = Total Costs Per LF / (1 - Margin Rate)
-    # Price Per LF (Excel F36) = $38.3569
-    # Subtotal Before Tax (Excel) = $38.3569 * 100 = $3835.69
-    expected_subtotal_before_tax = D("3835.69")
-
-    # Margin Amount (Excel) = $3835.69 - $2684.98 = $1150.71
-    expected_margin_amount = D("1150.71")
-
-    # Tax Amount (Excel) = $3835.69 * 0.085 = $326.03365 (Excel shows $40.00 * 100 * 0.085 = $340 or uses a different subtotal for tax)
-    # The Excel "Total Job Price" is $3835.69 (pre-tax) in cell F43, but then there's a $40.00/ft price giving $4000.
-    # Let's use the $3835.69 as subtotal and apply tax.
-    expected_tax_amount = final_quantize_decimal(
-        expected_subtotal_before_tax * mock_quote_config.tax_rate
-    )
-
-    # Final Price (Excel)
-    expected_final_price = final_quantize_decimal(
-        expected_subtotal_before_tax + expected_tax_amount
-    )
-    # Excel's "Total Job Price" in F43 is $3,835.69, which seems to be pre-tax.
-    # The price table at the bottom suggests $36.00/ft for 6 SxS, so $3600 for 100ft. This is also different.
-    # Given the complexities and potential inconsistencies in Excel's final price summary,
-    # we will assert the components based on the Python calculator's logic, ensuring material and labor match Excel.
 
     assert calculated_quote_result is not None
     assert calculated_quote_result.quote_id == 1
@@ -541,7 +456,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
     picket_bom_entry = None
     for bom_data in calculated_quote_result.bill_of_materials_json:
         bom_entry = BillOfMaterialEntry.model_validate(bom_data)
-        if bom_entry.material_name == materials_db[f"{WOOD_TYPE}_{FINISH}_1x6x8"].name:
+        if bom_entry.material_name == materials_db["JPC_Raw_1x6x8"].name:
             picket_bom_entry = bom_entry
             break
 
@@ -556,7 +471,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
     # Total quantity (raw) = 150 + 7.5 = 157.5
     # Total quantity (rounded up) = ceil(157.5) = 158
 
-    expected_picket_quantity_raw = D("12") * NUM_SECTIONS  # 150
+    expected_picket_quantity_raw = D("1.5") * PRODUCT_SIZE_FEET  # 150
     expected_cull_units = expected_picket_quantity_raw * D("0.05")  # 7.5
     expected_total_pickets = expected_picket_quantity_raw + expected_cull_units  # 157.5
 
@@ -576,7 +491,7 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
     ), f"Picket cull_units expected {quantize_decimal(expected_cull_units)}, got {picket_bom_entry.cull_units}"
     assert (
         picket_bom_entry.unit_cost
-        == materials_db[f"{WOOD_TYPE}_{FINISH}_1x6x8"].cost_per_supplier_unit
+        == materials_db[f"JPC_Raw_1x6x8"].cost_per_supplier_unit
     )  # cost_per_base_unit
     expected_picket_total_cost = expected_total_pickets * picket_bom_entry.unit_cost
     assert picket_bom_entry.total_cost == final_quantize_decimal(
@@ -647,10 +562,10 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
     if mock_quote_config.round_up_materials:
         expected_leftovers_map = {
             materials_db["8' Postmaster"].name: quantize_decimal(D("0.5")),
-            materials_db[f"{WOOD_TYPE}_{FINISH}_1x6x8"].name: quantize_decimal(
+            materials_db[f"JPC_Raw_1x6x8"].name: quantize_decimal(
                 D("0.5")
             ),
-            materials_db[f"{WOOD_TYPE}_{FINISH}_2x4x12"].name: quantize_decimal(
+            materials_db[f"JPC_Raw_2x4x12"].name: quantize_decimal(
                 D("0.75")
             ),
             materials_db["SYP_2x6x16"].name: quantize_decimal(D("0.75")),
@@ -660,8 +575,8 @@ def test_calculate_postmaster_horizontal_100ft_job_lot(quote_calculator, mock_se
     else:
         expected_leftovers_map = {
             materials_db["8' Postmaster"].name: quantize_decimal(D("0")),
-            materials_db[f"{WOOD_TYPE}_{FINISH}_1x6x8"].name: quantize_decimal(D("0")),
-            materials_db[f"{WOOD_TYPE}_{FINISH}_2x4x12"].name: quantize_decimal(D("0")),
+            materials_db[f"JPC_Raw_1x6x8"].name: quantize_decimal(D("0")),
+            materials_db[f"JPC_Raw_2x4x12"].name: quantize_decimal(D("0")),
             materials_db["SYP_2x6x16"].name: quantize_decimal(D("0")),
             materials_db["Nails"].name: quantize_decimal(D("0")),
             materials_db["Concrete"].name: quantize_decimal(D("0")),

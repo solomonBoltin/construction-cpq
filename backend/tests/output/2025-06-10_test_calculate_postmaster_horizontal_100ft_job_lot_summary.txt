@@ -1,5 +1,5 @@
---- Test Summary for: calculate_postmaster_horizontal_100ft_job_lot ---
-Executed on: 2025-06-10 00:51:59
+--- Test Summary for: test_calculate_postmaster_horizontal_100ft_job_lot ---
+Executed on: 2025-06-10 02:38:17
 
 --- Mock Quote Overview (Input) ---
 Quote: Test Postmaster-H Quote - 6ft H, 100ft Job Lot (ID: 1)
@@ -11,31 +11,37 @@ Quote: Test Postmaster-H Quote - 6ft H, 100ft Job Lot (ID: 1)
     Additional Fixed Fees: 0.00
   Product Entries:
     Entry ID: 1
-      Product: Postmaster Horizontal Fence - 6ft H - 8ft W (ID: 1)
-      Quantity of Product Units (Sections): 12.5
-  Product: Postmaster Horizontal Fence - 6ft H - 8ft W (ID: 1)
-    Base Labor per Section: 64.00
+      Product: Postmaster Horizontal Fence - 6ft H - Raw (ID: 1)
+      Quantity of Product Units (Sections): 100
+  Product: Postmaster Horizontal Fence - 6ft H - Raw (ID: 1)
+    Base Labor per Section: 8.00
     Base Materials (per section):
-      - 8' Postmaster: 1 Fence Section 8ft @ 18.01/1 Fence Section 8ft
-      - JPC 1x6x8 Raw Picket: 12 Fence Section 8ft @ 5.40/1 Fence Section 8ft
-      - JPC 2x4x12 Raw Rail: 0.5 Fence Section 8ft @ 12.50/1 Fence Section 8ft
-      - SYP 2x6x16 Color Treated Kickboard: 0.5 Fence Section 8ft @ 12.45/1 Fence Section 8ft
-      - Hardware - 2.25" Galvanized Ring Shank Nails: 400 Fence Section 8ft @ 0.01/1 Fence Section 8ft
-      - Concrete: 1 bag @ 5.35/1 bag
+      - 8' Postmaster: 0.125 linear foot @ 18.01/1 linear foot
+      - JPC 1x6x8 Raw Picket: 1.5 linear foot @ 5.40/1 linear foot
+      - JPC 2x4x12 Raw Rail: 0.0625 linear foot @ 12.50/1 linear foot
+      - SYP 2x6x16 Color Treated Kickboard: 0.0625 linear foot @ 12.45/1 linear foot
+      - Hardware - 2.25" Galvanized Ring Shank Nails: 50 linear foot @ 0.01/1 linear foot
+      - Concrete: 0.125 bag @ 5.35/1 bag
     Variation Groups:
-      Group: Fence Height (Required: True, Type: single_choice)
-        Option: 6ft Height
-          Additional Labor per Section: 0
-        Option: 8ft Height
-          Additional Labor per Section: 0
       Group: Cap (Required: False, Type: single_choice)
         Option: Yes
           Additional Labor per Section: 0
         Option: No
           Additional Labor per Section: 0.00
+      Group: Trim (Required: False, Type: single_choice)
+        Option: Yes
+          Additional Labor per Section: 0
+        Option: No
+          Additional Labor per Section: 0.00
+      Group: Style (Required: True, Type: single_choice)
+        Option: SxS
+          Additional Labor per Section: 0
+        Option: B.O.B.
+          Additional Labor per Section: 0
       Selected Variations:
-        - Fence Height: 6ft Height
         - Cap: No
+        - Trim: No
+        - Style: SxS
 
 --- Calculated Quote (Output) ---
 Calculated Quote (ID: None, For Quote ID: 1)
@@ -60,27 +66,27 @@ Calculated Quote (ID: None, For Quote ID: 1)
   Final Price: 3696.41
   Bill of Materials:
     - Material: 8' Postmaster
-      Quantity: 12.5 Fence Section 8ft
+      Quantity: 12.500 linear foot
       Unit Cost: 18.01
       Total Cost: 225.13
     - Material: JPC 1x6x8 Raw Picket
-      Quantity: 157.500 Fence Section 8ft
+      Quantity: 157.500 linear foot
       Unit Cost: 5.40
       Total Cost: 850.50
-      Cull Units: 7.5000 Fence Section 8ft
+      Cull Units: 7.5000 linear foot
     - Material: JPC 2x4x12 Raw Rail
-      Quantity: 6.25 Fence Section 8ft
+      Quantity: 6.2500 linear foot
       Unit Cost: 12.50
       Total Cost: 78.13
     - Material: SYP 2x6x16 Color Treated Kickboard
-      Quantity: 6.25 Fence Section 8ft
+      Quantity: 6.2500 linear foot
       Unit Cost: 12.45
       Total Cost: 77.81
     - Material: Hardware - 2.25" Galvanized Ring Shank Nails
-      Quantity: 5000.0 Fence Section 8ft
+      Quantity: 5000 linear foot
       Unit Cost: 0.01
       Total Cost: 50.00
     - Material: Concrete
-      Quantity: 12.5 bag
+      Quantity: 12.500 bag
       Unit Cost: 5.35
       Total Cost: 66.88
