@@ -1,0 +1,94 @@
+--- Test Summary for: fence_pm_jpc_6ft_raw_100ft_no_cap_no_trim_sxs ---
+Executed on: 2025-06-10 03:54:26
+
+--- Mock Quote Overview (Input) ---
+Quote: Test Quote - 100ft (ID: 1)
+  Config: Postmaster Horizontal Config (ID: 1)
+    Sales Commission Rate: 7%
+    Franchise Fee Rate: 4%
+    Margin Rate: 30%
+    Tax Rate: 8.5%
+    Additional Fixed Fees: 0.00
+  Product Entries:
+    Entry ID: 1
+      Product: Postmaster Horizontal Fence - 6ft H - Raw (ID: 1)
+      Quantity of Product Units (Sections): 100
+  Product: Postmaster Horizontal Fence - 6ft H - Raw (ID: 1)
+    Base Labor per Section: 8.00
+    Base Materials (per section):
+      - 8' Postmaster: 0.125 linear foot @ 18.01/1 linear foot
+      - JPC 1x6x8 Raw Picket: 1.5 linear foot @ 5.40/1 linear foot
+      - JPC 2x4x12 Raw Rail: 0.0625 linear foot @ 12.50/1 linear foot
+      - SYP 2x6x16 Color Treated Kickboard: 0.0625 linear foot @ 12.45/1 linear foot
+      - Hardware - 2.25" Galvanized Ring Shank Nails: 50 linear foot @ 0.01/1 linear foot
+      - Concrete: 0.125 bag @ 5.35/1 bag
+    Variation Groups:
+      Group: Cap (Required: False, Type: single_choice)
+        Option: Yes
+          Additional Labor per Section: 0.00
+        Option: No
+          Additional Labor per Section: 0.00
+      Group: Trim (Required: False, Type: single_choice)
+        Option: Yes
+          Additional Labor per Section: 0.00
+        Option: No
+          Additional Labor per Section: 0.00
+      Group: Style (Required: True, Type: single_choice)
+        Option: SxS
+          Additional Labor per Section: 0.00
+        Option: B.O.B.
+          Additional Labor per Section: 0.00
+          Materials Added/Modified (per section):
+            - JPC 1x6x8 Raw Picket: 0.5 linear foot
+      Selected Variations:
+        - Cap: No
+        - Trim: No
+        - Style: SxS
+
+--- Calculated Quote (Output) ---
+Calculated Quote (ID: None, For Quote ID: 1)
+  Total Material Cost: 1348.45
+  Total Labor Cost: 800.00
+  Cost of Goods Sold (COGS): 2148.45
+  Applied Rates & Fees:
+    - Name: Sales Commission
+      Type: fee_on_cogs
+      Rate Value: 0.0700
+      Applied Amount: 150.39
+    - Name: Franchise Fee
+      Type: fee_on_cogs
+      Rate Value: 0.0400
+      Applied Amount: 85.94
+    - Name: Margin
+      Type: margin
+      Rate Value: 0.3000
+      Applied Amount: 1022.05
+  Subtotal Before Tax: 3406.83
+  Tax Amount: 289.58
+  Final Price: 3696.41
+  Bill of Materials:
+    - Material: 8' Postmaster
+      Quantity: 12.500 linear foot
+      Unit Cost: 18.01
+      Total Cost: 225.13
+    - Material: JPC 1x6x8 Raw Picket
+      Quantity: 157.500 linear foot
+      Unit Cost: 5.40
+      Total Cost: 850.50
+      Cull Units: 7.5000 linear foot
+    - Material: JPC 2x4x12 Raw Rail
+      Quantity: 6.2500 linear foot
+      Unit Cost: 12.50
+      Total Cost: 78.13
+    - Material: SYP 2x6x16 Color Treated Kickboard
+      Quantity: 6.2500 linear foot
+      Unit Cost: 12.45
+      Total Cost: 77.81
+    - Material: Hardware - 2.25" Galvanized Ring Shank Nails
+      Quantity: 5000 linear foot
+      Unit Cost: 0.01
+      Total Cost: 50.00
+    - Material: Concrete
+      Quantity: 12.500 bag
+      Unit Cost: 5.35
+      Total Cost: 66.88
