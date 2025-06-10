@@ -28,7 +28,7 @@ from tests.model_str_format import str_format_calculated_quote, str_format_quote
 logger = logging.getLogger(__name__)
 
 
-class TestQuoteCalculatorPostmasterHorizontal:
+class TestQuoteCalculatorPostmasterHorizontalRawJPC6ft:
     """Test suite for QuoteCalculator with Postmaster Horizontal Fence scenarios."""
 
     @pytest.fixture
