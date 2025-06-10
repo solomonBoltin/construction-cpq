@@ -1,4 +1,4 @@
-from datetime import datetime # Add datetime import
+from datetime import datetime, timezone # Add timezone import
 from pydantic import field_serializer, BaseModel as PydanticBaseModel, ConfigDict
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
@@ -259,11 +259,11 @@ class QuoteBase(SQLModel):
     quote_config_id: int = Field(foreign_key="quote_config.id")
     status: str = Field(default="draft", max_length=20)
     created_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc), # Replaced datetime.utcnow
         sa_column_kwargs={"server_default": func.now()}
     )
     updated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc), # Replaced datetime.utcnow
         sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()}
     )
 
@@ -325,7 +325,7 @@ class CalculatedQuoteBase(SQLModel):
     tax_amount: Decimal = Field(max_digits=12, decimal_places=2)
     final_price: Decimal = Field(max_digits=12, decimal_places=2)
     calculated_at: datetime = Field(
-        default_factory=datetime.utcnow,
+        default_factory=lambda: datetime.now(timezone.utc), # Replaced datetime.utcnow
         sa_column_kwargs={"server_default": func.now()}
     )
 
