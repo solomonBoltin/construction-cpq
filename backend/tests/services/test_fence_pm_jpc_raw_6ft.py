@@ -137,32 +137,32 @@ class TestQuoteCalculatorPostmasterHorizontalRawJPC6ft:
         product = Product(
             id=1,
             name="Postmaster Horizontal Fence - 6ft H - Raw",
-            base_labor_cost_per_product_unit=Decimal("8.00"),
+            unit_labor_cost=Decimal("8.00"),
             product_unit_type_id=unit_types['linear_foot'].id,
             product_materials=[
                 ProductMaterial(
                     material=materials["postmaster_8ft"],
-                    quantity_of_material_base_units_per_product_unit=Decimal("0.125")
+                    material_amount=Decimal("0.125")
                 ),
                 ProductMaterial(
                     material=materials["picket_raw_1x6x8"],
-                    quantity_of_material_base_units_per_product_unit=Decimal("1.5")
+                    material_amount=Decimal("1.5")
                 ),
                 ProductMaterial(
                     material=materials["rail_raw_2x4x12"],
-                    quantity_of_material_base_units_per_product_unit=Decimal("0.0625")
+                    material_amount=Decimal("0.0625")
                 ),
                 ProductMaterial(
                     material=materials["kickboard_2x6x16"],
-                    quantity_of_material_base_units_per_product_unit=Decimal("0.0625")
+                    material_amount=Decimal("0.0625")
                 ),
                 ProductMaterial(
                     material=materials["nails"],
-                    quantity_of_material_base_units_per_product_unit=Decimal("50")
+                    material_amount=Decimal("50")
                 ),
                 ProductMaterial(
                     material=materials["concrete"],
-                    quantity_of_material_base_units_per_product_unit=Decimal("0.125")
+                    material_amount=Decimal("0.125")
                 ),
             ],
             variation_groups=[

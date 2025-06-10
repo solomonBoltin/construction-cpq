@@ -74,7 +74,7 @@
       "name": "6ft Postmaster Horizontal JPC Stained Fence",
       "description": "A 6ft tall Postmaster fence with horizontal Japanese Cedar pickets, stained.",
       "product_unit_type_name": "Linear Foot",
-      "base_labor_cost_per_product_unit": 10.00,
+      "unit_labor_cost": 10.00,
       "category_names": ["Wood Fence"],
       "materials": [
         { "material_name": "JPC Picket 5.5in x 6ft", "quantity_per_product_unit": 2.182 },

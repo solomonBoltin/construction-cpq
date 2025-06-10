@@ -76,9 +76,9 @@ def test_calculate_and_save_quote_simple_product_no_variations_no_fees(quote_cal
     
     mock_product_1 = Product(
         id=1, name="Basic Widget",
-        base_labor_cost_per_product_unit=D("50"),
+        unit_labor_cost=D("50"),
         product_materials=[
-            ProductMaterial(id=1, product_id=1, material_id=1, material=mock_material_1, quantity_of_material_base_units_per_product_unit=D("2")), # Needs 2 kg of Steel
+            ProductMaterial(id=1, product_id=1, material_id=1, material=mock_material_1, material_amount=D("2")), # Needs 2 kg of Steel
         ],
         # ... other necessary fields
     )
@@ -169,9 +169,9 @@ def test_calculate_and_save_quote_with_sales_commission_and_margin(quote_calcula
     
     mock_product_1 = Product(
         id=1, name="Advanced Gizmo",
-        base_labor_cost_per_product_unit=D("100"),
+        unit_labor_cost=D("100"),
         product_materials=[
-            ProductMaterial(id=1, product_id=1, material_id=1, material=mock_material_1, quantity_of_material_base_units_per_product_unit=D("1")),
+            ProductMaterial(id=1, product_id=1, material_id=1, material=mock_material_1, material_amount=D("1")),
         ],
     )
     
@@ -261,9 +261,9 @@ def test_calculate_and_save_quote_with_variation_material_change(quote_calculato
     )
 
     mock_product = Product(
-        id=1, name="Customizable Product", base_labor_cost_per_product_unit=D("20"),
+        id=1, name="Customizable Product", unit_labor_cost=D("20"),
         product_materials=[
-            ProductMaterial(material_id=1, material=mock_material_base, quantity_of_material_base_units_per_product_unit=D("2.0"))
+            ProductMaterial(material_id=1, material=mock_material_base, material_amount=D("2.0"))
         ]
     )
 
@@ -336,7 +336,7 @@ def test_calculate_and_save_quote_error_quote_config_not_found(quote_calculator,
 def test_calculate_and_save_quote_error_margin_rate_too_high(quote_calculator, mock_session):
     mock_quote_config_high_margin = QuoteConfig(margin_rate=D("1.0")) # 100% margin
     mock_quote_high_margin = Quote(id=1, quote_config=mock_quote_config_high_margin, product_entries=[
-        QuoteProductEntry(product=Product(base_labor_cost_per_product_unit=D("10")), quantity_of_product_units=D("1")) # Ensure COGS > 0
+        QuoteProductEntry(product=Product(unit_labor_cost=D("10")), quantity_of_product_units=D("1")) # Ensure COGS > 0
     ])
     mock_session.get.return_value = mock_quote_high_margin
     

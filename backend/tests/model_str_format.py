@@ -18,21 +18,21 @@ def str_format_product(product: Product, num_sections: Decimal) -> str:
     """Formats Product details for readable logging."""
     log_lines = [f"  Product: {product.name} (ID: {product.id})"]
     log_lines.append(
-        f"    Base Labor per Section: {product.base_labor_cost_per_product_unit}"
+        f"    Base Labor per Section: {product.unit_labor_cost}"
     )
     log_lines.append("    Base Materials (per section):")
     if hasattr(product, 'product_materials'):
         for pm in product.product_materials:
-            qty_per_section = pm.quantity_of_material_base_units_per_product_unit
+            qty_per_section = pm.material_amount
             if hasattr(pm, 'material') and pm.material and hasattr(pm.material, 'name') and "Nails" in pm.material.name:
                 if num_sections != Decimal("0"):
-                    # Original logic: (pm.quantity_of_material_base_units_per_product_unit * num_sections / num_sections)
-                    # This simplifies to pm.quantity_of_material_base_units_per_product_unit, assuming it means quantity for the whole job.
+                    # Original logic: (pm.material_amount * num_sections / num_sections)
+                    # This simplifies to pm.material_amount, assuming it means quantity for the whole job.
                     # If it means quantity per section that needs scaling, the formula would be different.
                     # Sticking to the literal interpretation of the formula provided which simplifies.
-                    qty_per_section = pm.quantity_of_material_base_units_per_product_unit
+                    qty_per_section = pm.material_amount
                 else:
-                    qty_per_section = pm.quantity_of_material_base_units_per_product_unit # Avoid division by zero
+                    qty_per_section = pm.material_amount # Avoid division by zero
 
             log_lines.append(
                 f"      - {pm.material.name}: {qty_per_section} {pm.material.base_unit_type.name} @ {pm.material.cost_per_supplier_unit}/{pm.material.quantity_in_supplier_unit} {pm.material.base_unit_type.name}"

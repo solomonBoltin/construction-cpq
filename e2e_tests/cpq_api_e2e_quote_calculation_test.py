@@ -40,20 +40,20 @@ def test_e2e_full_quote_calculation_scenario(client: httpx.Client):
     product_payload = {
         "name": "Test E2E - Basic Fence Section", "description": "A simple fence section",
         "product_unit_type_id": ut_lft_id,
-        "base_labor_cost_per_product_unit": "10.00"
+        "unit_labor_cost": "10.00"
     }
     product = create_entity(client, "products", product_payload, "product")
     product_id = product["id"]
 
     # --- 4. Create ProductMaterials for "Basic Fence Section" ---
     print("  Creating product materials...")
-    pm1_payload = {"product_id": product_id, "material_id": material1_id, "quantity_of_material_base_units_per_product_unit": "2.5"}
+    pm1_payload = {"product_id": product_id, "material_id": material1_id, "material_amount": "2.5"}
     pm1_response = client.post("/product_materials/", json=pm1_payload)
     assert pm1_response.status_code == 200, f"Failed to create PM1: {pm1_response.text}"
     pm1_id = pm1_response.json()["id"]
     created_entities.append({"type": "product_material", "id": pm1_id, "name": f"PM for Product {product_id} Material {material1_id}"})
     
-    pm2_payload = {"product_id": product_id, "material_id": material2_id, "quantity_of_material_base_units_per_product_unit": "0.375"}
+    pm2_payload = {"product_id": product_id, "material_id": material2_id, "material_amount": "0.375"}
     pm2_response = client.post("/product_materials/", json=pm2_payload)
     assert pm2_response.status_code == 200, f"Failed to create PM2: {pm2_response.text}"
     pm2_id = pm2_response.json()["id"]

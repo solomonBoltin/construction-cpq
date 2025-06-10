@@ -79,7 +79,7 @@ class QuoteCalculator:
 
                 product_quantity = entry.quantity_of_product_units
                 product_base_labor_cost = (
-                    product.base_labor_cost_per_product_unit * product_quantity
+                    product.unit_labor_cost * product_quantity
                 )
                 total_labor_cost_for_quote += product_base_labor_cost
 
@@ -94,7 +94,7 @@ class QuoteCalculator:
 
                     cost_per_base_unit = self._get_material_cost_per_base_unit(material)
                     quantity_needed_for_product = (
-                        pm.quantity_of_material_base_units_per_product_unit
+                        pm.material_amount
                         * product_quantity
                     )
                     

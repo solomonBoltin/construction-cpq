@@ -197,7 +197,7 @@ async function createConfigurableProduct(createdIds, unitTypes, materials) {
         name: `Postmaster Horizontal Test Product ${Date.now()}`,
         description: 'A test product to replicate the Postmaster Horizontal calculator.',
         product_unit_type_id: unitTypes['linear foot'],
-        base_labor_cost_per_product_unit: '13.00' // Base install cost for 8' BoB from Sub_Labor E11
+        unit_labor_cost: '13.00' // Base install cost for 8' BoB from Sub_Labor E11
     });
 
     const productId = product.id;
@@ -209,22 +209,22 @@ async function createConfigurableProduct(createdIds, unitTypes, materials) {
     await cpqClient.productMaterial.create({
         product_id: productId,
         material_id: materials["8' Postmaster"],
-        quantity_of_material_base_units_per_product_unit: new Decimal(1).dividedBy(sectionWidth).toString()
+        material_amount: new Decimal(1).dividedBy(sectionWidth).toString()
     });
     await cpqClient.productMaterial.create({
         product_id: productId,
         material_id: materials['Concrete'],
-        quantity_of_material_base_units_per_product_unit: new Decimal(1.5).dividedBy(sectionWidth).toString()
+        material_amount: new Decimal(1.5).dividedBy(sectionWidth).toString()
     });
      await cpqClient.productMaterial.create({
         product_id: productId,
         material_id: materials['Hardware - 2.25" Galvanized Ring Shank Nails'],
-        quantity_of_material_base_units_per_product_unit: new Decimal(400).dividedBy(sectionWidth).toString()
+        material_amount: new Decimal(400).dividedBy(sectionWidth).toString()
     });
     await cpqClient.productMaterial.create({
         product_id: productId,
         material_id: materials['SYP-Color Treated-2x6x12-Bulk'],
-        quantity_of_material_base_units_per_product_unit: new Decimal(0.5).dividedBy(sectionWidth).toString()
+        material_amount: new Decimal(0.5).dividedBy(sectionWidth).toString()
     });
 
 
@@ -256,7 +256,7 @@ async function createConfigurableProduct(createdIds, unitTypes, materials) {
     await cpqClient.productMaterial.create({ // Base pickets for SxS
         product_id: productId,
         material_id: materials[picketMaterialName],
-        quantity_of_material_base_units_per_product_unit: new Decimal(basePickets).times(1 + config.picketCullRate).dividedBy(sectionWidth).toString()
+        material_amount: new Decimal(basePickets).times(1 + config.picketCullRate).dividedBy(sectionWidth).toString()
     });
      await cpqClient.variationOptionMaterial.create({ // Extra pickets for BoB
         variation_option_id: optBoB.id,

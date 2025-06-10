@@ -91,7 +91,7 @@ def seed_products(session: Session, products_data: list):
                 name=prod_data["name"],
                 description=prod_data.get("description"),
                 product_unit_type_id=product_unit_type_id,
-                base_labor_cost_per_product_unit=prod_data.get("base_labor_cost_per_product_unit", 0.00)
+                unit_labor_cost=prod_data.get("unit_labor_cost", 0.00)
             )
             product = Product.model_validate(product_create)
             session.add(product)
@@ -105,7 +105,7 @@ def seed_products(session: Session, products_data: list):
                     product_material_create = ProductMaterialBase(
                         product_id=product.id,
                         material_id=material_id,
-                        quantity_of_material_base_units_per_product_unit=pm_data["quantity_per_product_unit"]
+                        material_amount=pm_data["quantity_per_product_unit"]
                     )
                     product_material = ProductMaterial.model_validate(product_material_create)
                     session.add(product_material)

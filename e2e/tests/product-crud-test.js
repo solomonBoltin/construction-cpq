@@ -29,7 +29,7 @@ async function productCrudTest() {
             name: productName,
             description: productDescription,
             product_unit_type_id: createdUnitTypeId,
-            base_labor_cost_per_product_unit: baseLaborCost 
+            unit_labor_cost: baseLaborCost 
         };
         const createdProduct = await cpqClient.product.create(createProductData);
         assert(createdProduct, 'Create product operation failed to return a result.');
@@ -37,7 +37,7 @@ async function productCrudTest() {
         assert.strictEqual(createdProduct.name, productName, `Expected product name to be ${productName} but got ${createdProduct.name}`);
         assert.strictEqual(createdProduct.product_unit_type_id, createdUnitTypeId, 'Product unit type ID does not match.');
         // Note: Decimal fields might be returned as strings or numbers depending on the client/API. Adjust assertion if needed.
-        assert.strictEqual(String(createdProduct.base_labor_cost_per_product_unit), baseLaborCost, 'Product base labor cost does not match.');
+        assert.strictEqual(String(createdProduct.unit_labor_cost), baseLaborCost, 'Product base labor cost does not match.');
         createdProductId = createdProduct.id;
         console.log(`   ✅ Product created successfully with ID: ${createdProductId}`);
 
@@ -58,7 +58,7 @@ async function productCrudTest() {
             name: updatedProductName,
             description: "Updated description",
             product_unit_type_id: createdUnitTypeId, // Keep the same unit type or update if necessary
-            base_labor_cost_per_product_unit: "12.75" 
+            unit_labor_cost: "12.75" 
         };
         // Assuming the update method is similar to other CRUD operations in the client
         // This might be cpqClient.product.update(createdProductId, updateProductData)
@@ -73,7 +73,7 @@ async function productCrudTest() {
         assert(updatedProduct, 'Update product operation failed to return a result.');
         assert.strictEqual(updatedProduct.id, createdProductId, `Updated Product ID ${updatedProduct.id} does not match created ID ${createdProductId}`);
         assert.strictEqual(updatedProduct.name, updatedProductName, `Expected updated product name to be ${updatedProductName} but got ${updatedProduct.name}`);
-        assert.strictEqual(updatedProduct.base_labor_cost_per_product_unit, "12.75", 'Product base labor cost was not updated.');
+        assert.strictEqual(updatedProduct.unit_labor_cost, "12.75", 'Product base labor cost was not updated.');
         console.log(`   ✅ Product updated successfully to: ${updatedProduct.name}`);
         */
 

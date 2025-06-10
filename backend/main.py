@@ -22,6 +22,9 @@ async def lifespan(app: FastAPI):
     print("Creating database and tables...")
     create_db_and_tables()
     print("Database and tables created.")
+    # if want to seed here, should make seed seed only if not exists
+    # from seed import main
+    # main()  # Call the seed function to populate initial data
     yield
     # Code to run on shutdown (if any)
     print("Application shutting down...")
