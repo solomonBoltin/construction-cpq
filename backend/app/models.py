@@ -133,6 +133,27 @@ class UnitType(UnitTypeBase, table=True):
     products: List["Product"] = Relationship(back_populates="product_unit_type")
 
 
+# New ProductCategory Model
+class ProductCategoryBase(SQLModel):
+    name: str = Field(max_length=100, unique=True, index=True)
+    image_url: Optional[str] = Field(default=None, max_length=255)
+
+class ProductCategory(ProductCategoryBase, table=True):
+    __tablename__ = "product_category"
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    product_links: List["ProductProductCategoryLink"] = Relationship(back_populates="category")
+
+# New Link Table for Product and ProductCategory
+class ProductProductCategoryLink(SQLModel, table=True):
+    __tablename__ = "product_product_category_link"
+    product_id: int = Field(default=None, foreign_key="product.id", primary_key=True)
+    product_category_id: int = Field(default=None, foreign_key="product_category.id", primary_key=True)
+
+    product: "Product" = Relationship(back_populates="category_links")
+    category: "ProductCategory" = Relationship(back_populates="product_links")
+
+
 class MaterialBase(SQLModel):
     name: str = Field(max_length=255, unique=True, index=True)
     description: Optional[str] = Field(default=None)
@@ -174,6 +195,9 @@ class Product(ProductBase, table=True):
     product_materials: List["ProductMaterial"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     variation_groups: List["VariationGroup"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     quote_product_entries: List["QuoteProductEntry"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+    # Relationship to the link table for ProductCategories
+    category_links: List["ProductProductCategoryLink"] = Relationship(back_populates="product")
 
 
 class ProductMaterialBase(SQLModel):

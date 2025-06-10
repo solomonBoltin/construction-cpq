@@ -11,7 +11,6 @@ RUN npm install
 # Copy all test files and helpers
 COPY main.js ./
 COPY test-runner.js ./
-COPY test-helpers.js ./
 COPY tests/ ./tests/
 
 # Set the command to run the API client

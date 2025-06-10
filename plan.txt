@@ -427,3 +427,85 @@ stage 3:
 
 up next:
  compare the postmaster test summery to the excel calcolator (need to see it calculates same amount and bom material amounts)
+
+ catalog service 
+ giving you (
+  get_session,
+  create_quote(name, description, quote_config_id),
+  update_quote_state(id, state),
+  
+
+  categories_preview()->(name, img),
+  products_preview(category=x)->(name, img), 
+  product_entry_view(id)->(name, img, description, variation_entry_views))
+  product_variation_entry_view(id)->(name, description,type, options(id, name, img))
+  add_product_to_quote(quote_id, product_id, variation_entries)
+  create_quote_product_entry(quote_id, product_id, quantity, variation_entries) -> new_quote_product_entry
+  update_quote_product_entry(quote_id, product_entry_id, quantity, variation_entries) -> updated_quote_product_entry
+
+
+  calculate_quote(quote_id) -> calculated_quote
+  
+
+client
+coockie: quote_id / if null shows wellcom page with create quote button
+when create quote is clicked, it creates a new quote sets the coki and redirect to catalog
+
+catalog:
+state:
+  select_category : [
+       shows categories previews 
+  ]
+
+  selected_main_product: [
+    shows procuct previews of category x 
+  ]
+
+  popup product entry [
+    shows product_entry_view(id=x)
+     main_product_deatils: eg fence
+     size, cap, trim, style, then 
+    next btn
+  ]
+
+  select secondary product [
+    shows secondary product previews
+    eg gatex, gatey,
+    next btn 
+  ]
+
+ secondary product entry [
+    shows product_entry_view(id=x)
+    main_product_deatils: eg gate
+    
+  ]
+
+  select variations [
+    shows variation_entry_views for main and secondary products
+    eg style, cap, trim, etc
+    click on them will add them to the quote product entry
+  ]
+
+  quote_product_list [
+    shows all products added to the quote with their variations and quantities
+    can edit quantities and remove products
+  ]
+
+  calculate quote [
+    shows calculated quote view with total price, bill of materials, labor costs, etc.
+  ]
+ ]
+
+ addition products - eg hardigging / tare down / 
+ click on them will add them and make it selected 
+ get quote btn, total 
+ quote.pdf, quote_info.pdf
+
+
+ calculated 
+
+
+
+
+
+

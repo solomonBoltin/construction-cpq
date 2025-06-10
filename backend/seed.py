@@ -9,7 +9,9 @@ from app.models import (
     VariationGroup, VariationGroupBase,
     VariationOption, VariationOptionBase,
     VariationOptionMaterial, VariationOptionMaterialBase,
-    QuoteConfig, QuoteConfigBase
+    QuoteConfig, QuoteConfigBase,
+    ProductCategory, ProductCategoryBase,
+    ProductProductCategoryLink
 )
 
 # Path to your seed JSON file
@@ -26,6 +28,12 @@ def get_material_id_by_name(session: Session, name: str) -> int:
     if not material:
         raise ValueError(f"Material with name '{name}' not found in the database. Ensure it was seeded first.")
     return material.id
+
+def get_product_category_id_by_name(session: Session, name: str) -> int:
+    category = session.exec(select(ProductCategory).where(ProductCategory.name == name)).first()
+    if not category:
+        raise ValueError(f"ProductCategory with name '{name}' not found. Ensure it was seeded first.")
+    return category.id
 
 def seed_unit_types(session: Session, unit_types_data: list):
     print("Seeding Unit Types...")
@@ -62,6 +70,16 @@ def seed_materials(session: Session, materials_data: list):
     session.commit()
     print("Materials seeded.")
 
+def seed_product_categories(session: Session, categories_data: list):
+    print("Seeding Product Categories...")
+    for cat_data in categories_data:
+        existing_cat = session.exec(select(ProductCategory).where(ProductCategory.name == cat_data["name"])).first()
+        if not existing_cat:
+            category = ProductCategory.model_validate(cat_data)
+            session.add(category)
+    session.commit()
+    print("Product Categories seeded.")
+
 def seed_products(session: Session, products_data: list):
     print("Seeding Products...")
     for prod_data in products_data:
@@ -91,6 +109,16 @@ def seed_products(session: Session, products_data: list):
                     )
                     product_material = ProductMaterial.model_validate(product_material_create)
                     session.add(product_material)
+            
+            # Seed Product-Category Links
+            if "category_names" in prod_data:
+                for cat_name in prod_data["category_names"]:
+                    try:
+                        category_id = get_product_category_id_by_name(session, cat_name)
+                        link = ProductProductCategoryLink(product_id=product.id, product_category_id=category_id)
+                        session.add(link)
+                    except ValueError as e:
+                        print(f"Warning: Could not link product '{product.name}' to category '{cat_name}': {e}")
             
             # Seed VariationGroups and VariationOptions
             if "variation_groups" in prod_data:
@@ -132,7 +160,7 @@ def seed_products(session: Session, products_data: list):
                                     vom = VariationOptionMaterial.model_validate(vom_create)
                                     session.add(vom)
     session.commit()
-    print("Products, their materials, and variations seeded.")
+    print("Products, their materials, categories, and variations seeded.")
 
 def seed_quote_configs(session: Session, quote_configs_data: list):
     print("Seeding Quote Configs...")
@@ -162,6 +190,9 @@ def main():
         
         if "materials" in seed_data:
             seed_materials(session, seed_data["materials"])
+        
+        if "product_categories" in seed_data: 
+            seed_product_categories(session, seed_data["product_categories"])
         
         if "products" in seed_data:
             seed_products(session, seed_data["products"])
