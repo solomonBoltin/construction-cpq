@@ -10,11 +10,6 @@ from sqlmodel.main import SQLModelMetaclass
 from sqlalchemy import Column, Float, ForeignKey, Integer, String, Boolean, Text, func, UniqueConstraint # Add func and UniqueConstraint imports
 
 
-class ColumnCloningMetaclass(SQLModelMetaclass):
-    def __setattr__(cls, name: str, value: Any) -> None:
-        if isinstance(value, Column):
-            return super().__setattr__(name, value.copy())
-        return super().__setattr__(name, value)
 
 
 # Custom SQLAlchemy TypeDecorator for lists of Pydantic models
