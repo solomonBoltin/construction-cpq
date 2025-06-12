@@ -453,18 +453,24 @@ when create quote is clicked, it creates a new quote sets the coki and redirect 
 
 catalog:
 state:
+  
   select_category : [
-       shows categories previews 
+
+       shows categories previews (get_catogories_preview() -> List[Dict[name, img]]
   ]
 
   selected_main_product: [
-    shows procuct previews of category x 
+    shows procuct previews of category x (get_products_preview(category=x) -> List[Dict[name, img])
   ]
 
   popup product entry [
-    shows product_entry_view(id=x)
+    shows product_entry_view(id=x) (get_product_entry_view(id=x) -> Dict[name, img, description, variation_entry_views])
      main_product_deatils: eg fence
      size, cap, trim, style, then 
+    
+    (set_quote_product_entry(quote_id, product_id, quantity) -> new_quote_product_entry) (if provided with product entry id it will update else create a new one)
+    (set_quote_product_option_entry(quote_product_entry_id, variation_entries) -> updated_quote_product_entry ) if provided with variation entries it will update the existing variation entrie else it will create a new one
+    
     next btn
   ]
 
@@ -501,8 +507,56 @@ state:
  get quote btn, total 
  quote.pdf, quote_info.pdf
 
+lets create the python catalog_service.py singelton that will handle all the logic for the catalog service
 
- calculated 
+
+class CatalogSession:
+    id: int
+    quotes: List[Quote]  # List of quotes linked to this session
+    current_quote: Optional[Quote] = None  # The current quote being worked on
+
+
+class CatalogService:
+
+    get_catalog_session(id=none)
+      # manages a catlog session that can be linked to multiple quotes 
+      if id is None it will create a new session and return it
+
+    set_quote(session_id, quote_id/n, name, description, quote_config_id, state)
+        # creates or updates a quote and links it to the session
+    get_quote(quote_id)
+
+    set_quote_product_entry(quote_id, product_id, product_entry_id/n, quantity)
+        # creates or updates a quote product entry
+
+    set_quote_product_option_entry(quote_product_entry_id, variation_entries)
+        # creates or updates a quote product option entry with variations
+
+    select_main_product(session_id, product_id)
+    select_main_product_variation(session_id, variation_group_id, variation_option_id)
+    
+    select_secondary_product(session_id, product_id)
+    select_secondary_product_variation(session_id, variation_group_id, variation_option_id)
+
+    select_additional_product(session_id, product_id) -> id 
+    select_additional_product_variation(session_id, product_entry_id, variation_group_id, variation_option_id)
+
+    calculate_quote(quote_id) -> CalculatedQuote
+        # Calculates the quote and returns the calculated quote object
+      
+    get_quote_client_pdf(quote_id) -> bytes
+    
+    
+
+        
+
+    
+
+
+
+
+
+    
 
 
 

@@ -15,79 +15,59 @@ from app.models import (
     VariationOption,
     VariationOptionMaterial,
     CalculatedQuote,
-    BillOfMaterialEntry,
-    AppliedRateInfoEntry,
+    BillOfMaterialEntry, 
+    AppliedRateInfoEntry, 
 )
 from app.services.quote_calculator import QuoteCalculator, quantize_decimal, final_quantize_decimal
 
-# Helper to create Decimal with consistent precision for tests
-def D(value: str) -> Decimal:
-    return Decimal(value)
 
-@pytest.fixture
-def quote_calculator():
-    return QuoteCalculator()
-
-@pytest.fixture
-def mock_session():
-    return MagicMock()
-
-# --- Tests for _get_material_cost_per_base_unit ---
-def test_get_material_cost_per_base_unit_valid(quote_calculator):
+@pytest.mark.parametrize(
+    "cost_per_supplier_unit_str, quantity_in_supplier_unit_str, expected_cost_str",
+    [
+        ("10.0", "5.0", "2.0"),
+        ("10.0", "0", "0"),
+        ("0", "5.0", "0"),
+    ],
+)
+def test_get_material_cost_per_base_unit(
+    quote_calculator_service: QuoteCalculator, 
+    D_fixture,
+    cost_per_supplier_unit_str: str,
+    quantity_in_supplier_unit_str: str,
+    expected_cost_str: str,
+):
     material = Material(
-        cost_per_supplier_unit=D("10.0"),
-        quantity_in_supplier_unit=D("5.0"),
-        # ... other fields
+        cost_per_supplier_unit=D_fixture(cost_per_supplier_unit_str),
+        quantity_in_supplier_unit=D_fixture(quantity_in_supplier_unit_str),
     )
-    expected_cost = D("2.0")
-    assert quote_calculator._get_material_cost_per_base_unit(material) == expected_cost
-
-def test_get_material_cost_per_base_unit_zero_quantity(quote_calculator):
-    material = Material(
-        cost_per_supplier_unit=D("10.0"),
-        quantity_in_supplier_unit=D("0"),
-        # ... other fields
-    )
-    expected_cost = D("0")
-    assert quote_calculator._get_material_cost_per_base_unit(material) == expected_cost
-
-def test_get_material_cost_per_base_unit_zero_cost(quote_calculator):
-    material = Material(
-        cost_per_supplier_unit=D("0"),
-        quantity_in_supplier_unit=D("5.0"),
-        # ... other fields
-    )
-    expected_cost = D("0")
-    assert quote_calculator._get_material_cost_per_base_unit(material) == expected_cost
+    expected_cost = D_fixture(expected_cost_str)
+    assert quote_calculator_service._get_material_cost_per_base_unit(material) == expected_cost
 
 
-# --- Tests for calculate_and_save_quote ---
-
-def test_calculate_and_save_quote_simple_product_no_variations_no_fees(quote_calculator, mock_session):
-    # --- Mock Data Setup ---
+def test_calculate_and_save_quote_simple_product_no_variations_no_fees(
+    quote_calculator_service: QuoteCalculator, mock_session: MagicMock, D_fixture
+):
+    D = D_fixture
     mock_base_unit_type = UnitType(id=1, name="kg", abbreviation="kg")
     
     mock_material_1 = Material(
         id=1, name="Steel",
-        cost_per_supplier_unit=D("100"), quantity_in_supplier_unit=D("10"), # Cost per base unit = 10
+        cost_per_supplier_unit=D("100"), quantity_in_supplier_unit=D("10"), 
         base_unit_type_id=1, base_unit_type=mock_base_unit_type,
-        # ... other necessary fields
     )
     
     mock_product_1 = Product(
         id=1, name="Basic Widget",
         unit_labor_cost=D("50"),
         product_materials=[
-            ProductMaterial(id=1, product_id=1, material_id=1, material=mock_material_1, material_amount=D("2")), # Needs 2 kg of Steel
+            ProductMaterial(id=1, product_id=1, material_id=1, material=mock_material_1, material_amount=D("2")),
         ],
-        # ... other necessary fields
     )
     
     mock_quote_entry_1 = QuoteProductEntry(
         id=1, quote_id=1, product_id=1, product=mock_product_1,
-        quantity_of_product_units=D("3"), # 3 Basic Widgets
+        quantity_of_product_units=D("3"), 
         selected_variations=[],
-        # ... other necessary fields
     )
     
     mock_quote_config = QuoteConfig(
@@ -97,38 +77,17 @@ def test_calculate_and_save_quote_simple_product_no_variations_no_fees(quote_cal
         margin_rate=D("0"),
         additional_fixed_fees=D("0"),
         tax_rate=D("0"),
-        # ... other necessary fields
     )
     
     mock_quote = Quote(
         id=1, name="Test Quote Simple",
         quote_config_id=1, quote_config=mock_quote_config,
         product_entries=[mock_quote_entry_1],
-        # ... other necessary fields
     )
 
-    # Mock session.get to return our mock objects
-    def get_side_effect(model, pk):
-        if model == Quote and pk == 1:
-            return mock_quote
-        # Add other models if QuoteCalculator fetches them directly by ID (e.g., CalculatedQuote if updating)
-        return None 
-    mock_session.get.side_effect = get_side_effect
+    mock_session.get.return_value = mock_quote
     
-    # Mock session.exec(select(...)).first() for existing CalculatedQuote check
-    mock_existing_calculated_quote_query = MagicMock()
-    mock_existing_calculated_quote_query.first.return_value = None # No existing CalculatedQuote
-    mock_session.exec.return_value = mock_existing_calculated_quote_query
-
-
-    # --- Call the method ---
-    calculated_quote_result = quote_calculator.calculate_and_save_quote(quote_id=1, session=mock_session)
-
-    # --- Assertions ---
-    # Material cost: 3 widgets * (2 kg/widget * 10 cost/kg) = 3 * 20 = 60
-    # Labor cost: 3 widgets * 50 cost/widget = 150
-    # COGS = 60 + 150 = 210
-    # No fees, no margin, no tax.
+    calculated_quote_result = quote_calculator_service.calculate_and_save_quote(quote_id=1, session=mock_session)
     
     assert calculated_quote_result is not None
     assert calculated_quote_result.quote_id == 1
@@ -140,30 +99,34 @@ def test_calculate_and_save_quote_simple_product_no_variations_no_fees(quote_cal
     assert final_quantize_decimal(calculated_quote_result.final_price) == final_quantize_decimal(D("210"))
     
     assert len(calculated_quote_result.bill_of_materials_json) == 1
-    bom_entry = calculated_quote_result.bill_of_materials_json[0]
+    bom_entry_data = calculated_quote_result.bill_of_materials_json[0]
+    if isinstance(bom_entry_data, dict): # Handle Pydantic v2
+        bom_entry = BillOfMaterialEntry.model_validate(bom_entry_data)
+    else: # Handle Pydantic v1 or direct object
+        bom_entry = bom_entry_data
+        
     assert bom_entry.material_name == "Steel"
-    assert quantize_decimal(bom_entry.quantity) == quantize_decimal(D("6")) # 3 widgets * 2 kg/widget
+    assert quantize_decimal(bom_entry.quantity) == quantize_decimal(D("6")) 
     assert quantize_decimal(bom_entry.unit_cost) == quantize_decimal(D("10"))
     assert final_quantize_decimal(bom_entry.total_cost) == final_quantize_decimal(D("60"))
     assert bom_entry.unit_name == "kg"
     
-    assert len(calculated_quote_result.applied_rates_info_json) == 0 # No rates applied
+    assert len(calculated_quote_result.applied_rates_info_json) == 0
 
-    # Verify session.add and session.commit were called (or session.refresh if updating)
-    mock_session.add.assert_any_call(calculated_quote_result) # Check that our object was added
+    mock_session.add.assert_any_call(calculated_quote_result) 
     mock_session.commit.assert_called_once()
-    # Check if refresh was called with calculated_quote_result
-    refreshed_objects = [call_args[0][0] for call_args in mock_session.refresh.call_args_list]
-    assert calculated_quote_result in refreshed_objects
+    mock_session.refresh.assert_any_call(calculated_quote_result)
 
 
-def test_calculate_and_save_quote_with_sales_commission_and_margin(quote_calculator, mock_session):
-    # --- Mock Data Setup ---
+def test_calculate_and_save_quote_with_sales_commission_and_margin(
+    quote_calculator_service: QuoteCalculator, mock_session: MagicMock, D_fixture
+):
+    D = D_fixture
     mock_base_unit_type = UnitType(id=1, name="item", abbreviation="item")
     
     mock_material_1 = Material(
         id=1, name="Component A",
-        cost_per_supplier_unit=D("20"), quantity_in_supplier_unit=D("1"), # Cost per base unit = 20
+        cost_per_supplier_unit=D("20"), quantity_in_supplier_unit=D("1"), 
         base_unit_type_id=1, base_unit_type=mock_base_unit_type,
     )
     
@@ -177,15 +140,15 @@ def test_calculate_and_save_quote_with_sales_commission_and_margin(quote_calcula
     
     mock_quote_entry_1 = QuoteProductEntry(
         id=1, quote_id=1, product_id=1, product=mock_product_1,
-        quantity_of_product_units=D("1"), # 1 Advanced Gizmo
+        quantity_of_product_units=D("1"), 
         selected_variations=[],
     )
     
     mock_quote_config = QuoteConfig(
         id=1, name="Config with Commission and Margin",
-        sales_commission_rate=D("0.10"), # 10%
+        sales_commission_rate=D("0.10"), 
         franchise_fee_rate=D("0"),
-        margin_rate=D("0.20"), # 20%
+        margin_rate=D("0.20"), 
         additional_fixed_fees=D("0"),
         tax_rate=D("0"),
     )
@@ -197,28 +160,8 @@ def test_calculate_and_save_quote_with_sales_commission_and_margin(quote_calcula
     )
 
     mock_session.get.return_value = mock_quote
-    mock_existing_calculated_quote_query = MagicMock()
-    mock_existing_calculated_quote_query.first.return_value = None
-    mock_session.exec.return_value = mock_existing_calculated_quote_query
-
-    # --- Call the method ---
-    calculated_quote_result = quote_calculator.calculate_and_save_quote(quote_id=1, session=mock_session)
-
-    # --- Assertions ---
-    # Material cost: 1 widget * (1 item/widget * 20 cost/item) = 20
-    # Labor cost: 1 widget * 100 cost/widget = 100
-    # COGS = 20 + 100 = 120
     
-    # Sales Commission (on COGS): 120 * 0.10 = 12
-    # Subtotal after COGS-based fees = 120 + 12 = 132
-    
-    # Margin (on subtotal after COGS-based fees):
-    # Cost base for margin = 132
-    # Margin Amount = (132 * 0.20) / (1 - 0.20) = (132 * 0.20) / 0.80 = 26.4 / 0.80 = 33
-    
-    # Subtotal before tax = 132 (cost_base_for_margin) + 33 (margin_amount) = 165
-    # No tax.
-    # Final Price = 165
+    calculated_quote_result = quote_calculator_service.calculate_and_save_quote(quote_id=1, session=mock_session)
     
     assert final_quantize_decimal(calculated_quote_result.total_material_cost) == final_quantize_decimal(D("20"))
     assert final_quantize_decimal(calculated_quote_result.total_labor_cost) == final_quantize_decimal(D("100"))
@@ -226,12 +169,22 @@ def test_calculate_and_save_quote_with_sales_commission_and_margin(quote_calcula
     
     assert len(calculated_quote_result.applied_rates_info_json) == 2
     
-    commission_info = next(r for r in calculated_quote_result.applied_rates_info_json if r.name == "Sales Commission")
+    commission_info_data = next(r for r in calculated_quote_result.applied_rates_info_json if r.name == "Sales Commission")
+    if isinstance(commission_info_data, dict):
+        commission_info = AppliedRateInfoEntry.model_validate(commission_info_data)
+    else:
+        commission_info = commission_info_data
+        
     assert commission_info.type == "fee_on_cogs"
     assert quantize_decimal(commission_info.rate_value) == quantize_decimal(D("0.10"))
     assert final_quantize_decimal(commission_info.applied_amount) == final_quantize_decimal(D("12"))
     
-    margin_info = next(r for r in calculated_quote_result.applied_rates_info_json if r.name == "Margin")
+    margin_info_data = next(r for r in calculated_quote_result.applied_rates_info_json if r.name == "Margin")
+    if isinstance(margin_info_data, dict):
+        margin_info = AppliedRateInfoEntry.model_validate(margin_info_data)
+    else:
+        margin_info = margin_info_data
+        
     assert margin_info.type == "margin"
     assert quantize_decimal(margin_info.rate_value) == quantize_decimal(D("0.20"))
     assert final_quantize_decimal(margin_info.applied_amount) == final_quantize_decimal(D("33"))
@@ -240,23 +193,24 @@ def test_calculate_and_save_quote_with_sales_commission_and_margin(quote_calcula
     assert final_quantize_decimal(calculated_quote_result.tax_amount) == final_quantize_decimal(D("0"))
     assert final_quantize_decimal(calculated_quote_result.final_price) == final_quantize_decimal(D("165"))
 
-    mock_session.add.assert_any_call(calculated_quote_result) # Check that our object was added
+    mock_session.add.assert_any_call(calculated_quote_result) 
     mock_session.commit.assert_called_once()
-    mock_session.refresh.assert_any_call(calculated_quote_result) # Allow multiple refreshes for now
+    mock_session.refresh.assert_any_call(calculated_quote_result) 
 
 
-def test_calculate_and_save_quote_with_variation_material_change(quote_calculator, mock_session):
-    # --- Mock Data Setup ---
+def test_calculate_and_save_quote_with_variation_material_change(
+    quote_calculator_service: QuoteCalculator, mock_session: MagicMock, D_fixture
+):
+    D = D_fixture
     mock_base_unit_type = UnitType(id=1, name="unit", abbreviation="u")
-    
     mock_material_base = Material(id=1, name="Base Material", cost_per_supplier_unit=D("10"), quantity_in_supplier_unit=D("1"), base_unit_type=mock_base_unit_type)
     mock_material_added = Material(id=2, name="Added Material", cost_per_supplier_unit=D("5"), quantity_in_supplier_unit=D("1"), base_unit_type=mock_base_unit_type)
 
     mock_variation_option = VariationOption(
         id=1, name="Upgrade Option", additional_labor_cost_per_product_unit=D("5"),
         variation_option_materials=[
-            VariationOptionMaterial(material_id=1, material=mock_material_base, quantity_of_material_base_units_added=D("-0.5")), # Reduces Base Material
-            VariationOptionMaterial(material_id=2, material=mock_material_added, quantity_of_material_base_units_added=D("1.0")), # Adds new Material
+            VariationOptionMaterial(material_id=1, material=mock_material_base, quantity_of_material_base_units_added=D("-0.5")), 
+            VariationOptionMaterial(material_id=2, material=mock_material_added, quantity_of_material_base_units_added=D("1.0")), 
         ]
     )
 
@@ -269,37 +223,15 @@ def test_calculate_and_save_quote_with_variation_material_change(quote_calculato
 
     mock_quote_entry = QuoteProductEntry(
         id=1, product=mock_product, quantity_of_product_units=D("1"),
-        selected_variations=[MagicMock(variation_option=mock_variation_option)] # Using MagicMock for QuoteProductEntryVariation
+        selected_variations=[MagicMock(variation_option=mock_variation_option)] 
     )
     
     mock_quote_config = QuoteConfig(sales_commission_rate=D("0"), franchise_fee_rate=D("0"), margin_rate=D("0"), additional_fixed_fees=D("0"), tax_rate=D("0"))
     mock_quote = Quote(id=1, quote_config=mock_quote_config, product_entries=[mock_quote_entry])
 
     mock_session.get.return_value = mock_quote
-    mock_existing_calculated_quote_query = MagicMock()
-    mock_existing_calculated_quote_query.first.return_value = None
-    mock_session.exec.return_value = mock_existing_calculated_quote_query
     
-    # --- Call ---
-    result = quote_calculator.calculate_and_save_quote(1, mock_session)
-
-    # --- Assertions ---
-    # Original Base Material: 2.0 units
-    # Variation reduces Base Material by 0.5 units. Net Base Material needed = 2.0 - 0.5 = 1.5 units.
-    # Variation adds Added Material by 1.0 units. Net Added Material needed = 1.0 units.
-
-    # With math.ceil rounding for quantities:
-    # Base Material quantity: math.ceil(1.5) = 2 units.
-    # Base Material cost: 2 units * 10 cost/unit = 20.
-    # Added Material quantity: math.ceil(1.0) = 1 unit.
-    # Added Material cost: 1 unit * 5 cost/unit = 5.
-    # Total Material Cost = 20 (Base) + 5 (Added) = 25.
-
-    # Base Labor: 20
-    # Variation Labor: 5
-    # Total Labor Cost = 20 + 5 = 25
-    
-    # COGS = 25 (material) + 25 (labor) = 50
+    result = quote_calculator_service.calculate_and_save_quote(1, mock_session)
 
     assert final_quantize_decimal(result.total_material_cost) == final_quantize_decimal(D("25"))
     assert final_quantize_decimal(result.total_labor_cost) == final_quantize_decimal(D("25"))
@@ -308,44 +240,53 @@ def test_calculate_and_save_quote_with_variation_material_change(quote_calculato
 
     assert len(result.bill_of_materials_json) == 2
     
-    base_material_bom = next(b for b in result.bill_of_materials_json if b.material_name == "Base Material")
-    added_material_bom = next(b for b in result.bill_of_materials_json if b.material_name == "Added Material")
+    base_material_bom_data = next(b for b in result.bill_of_materials_json if b.material_name == "Base Material")
+    if isinstance(base_material_bom_data, dict):
+        base_material_bom = BillOfMaterialEntry.model_validate(base_material_bom_data)
+    else:
+        base_material_bom = base_material_bom_data
+        
+    added_material_bom_data = next(b for b in result.bill_of_materials_json if b.material_name == "Added Material")
+    if isinstance(added_material_bom_data, dict):
+        added_material_bom = BillOfMaterialEntry.model_validate(added_material_bom_data)
+    else:
+        added_material_bom = added_material_bom_data
 
-    assert quantize_decimal(base_material_bom.quantity) == quantize_decimal(D("2")) # Rounded up from 1.5
-    assert final_quantize_decimal(base_material_bom.total_cost) == final_quantize_decimal(D("20")) # 2 * 10
+    assert quantize_decimal(base_material_bom.quantity) == quantize_decimal(D("2")) 
+    assert final_quantize_decimal(base_material_bom.total_cost) == final_quantize_decimal(D("20")) 
     
-    assert quantize_decimal(added_material_bom.quantity) == quantize_decimal(D("1")) # Stays 1
-    assert final_quantize_decimal(added_material_bom.total_cost) == final_quantize_decimal(D("5")) # 1 * 5
+    assert quantize_decimal(added_material_bom.quantity) == quantize_decimal(D("1")) 
+    assert final_quantize_decimal(added_material_bom.total_cost) == final_quantize_decimal(D("5")) 
 
-    mock_session.add.assert_any_call(result) # Check that our object was added
+    mock_session.add.assert_any_call(result) 
     mock_session.commit.assert_called_once()
-    mock_session.refresh.assert_any_call(result) # Allow multiple refreshes for now
+    mock_session.refresh.assert_any_call(result)
 
 
-def test_calculate_and_save_quote_error_quote_not_found(quote_calculator, mock_session):
-    mock_session.get.return_value = None # Quote not found
+def test_calculate_and_save_quote_error_quote_not_found(quote_calculator_service: QuoteCalculator, mock_session: MagicMock):
+    mock_session.get.return_value = None 
     with pytest.raises(ValueError, match="Quote with id 999 not found"):
-        quote_calculator.calculate_and_save_quote(quote_id=999, session=mock_session)
+        quote_calculator_service.calculate_and_save_quote(quote_id=999, session=mock_session)
 
-def test_calculate_and_save_quote_error_quote_config_not_found(quote_calculator, mock_session):
-    mock_quote_no_config = Quote(id=1, quote_config=None, product_entries=[])
+def test_calculate_and_save_quote_error_quote_config_not_found(quote_calculator_service: QuoteCalculator, mock_session: MagicMock):
+    mock_quote_no_config = Quote(id=1, quote_config=None, product_entries=[]) # type: ignore
     mock_session.get.return_value = mock_quote_no_config
     with pytest.raises(ValueError, match="QuoteConfig not found for Quote with id 1"):
-        quote_calculator.calculate_and_save_quote(quote_id=1, session=mock_session)
+        quote_calculator_service.calculate_and_save_quote(quote_id=1, session=mock_session)
 
-def test_calculate_and_save_quote_error_margin_rate_too_high(quote_calculator, mock_session):
-    mock_quote_config_high_margin = QuoteConfig(margin_rate=D("1.0")) # 100% margin
-    mock_quote_high_margin = Quote(id=1, quote_config=mock_quote_config_high_margin, product_entries=[
-        QuoteProductEntry(product=Product(unit_labor_cost=D("10")), quantity_of_product_units=D("1")) # Ensure COGS > 0
-    ])
+def test_calculate_and_save_quote_error_margin_rate_too_high(
+    quote_calculator_service: QuoteCalculator, mock_session: MagicMock, D_fixture
+):
+    D = D_fixture
+    mock_quote_config_high_margin = QuoteConfig(margin_rate=D("1.0")) 
+    mock_product_for_cogs = Product(id=1, name="Prod", unit_labor_cost=D("10"), product_materials=[])
+    mock_quote_entry_for_cogs = QuoteProductEntry(id=1, product=mock_product_for_cogs, quantity_of_product_units=D("1"), selected_variations=[])
+    mock_quote_high_margin = Quote(id=1, quote_config=mock_quote_config_high_margin, product_entries=[mock_quote_entry_for_cogs])
+    
     mock_session.get.return_value = mock_quote_high_margin
     
-    mock_existing_calculated_quote_query = MagicMock()
-    mock_existing_calculated_quote_query.first.return_value = None
-    mock_session.exec.return_value = mock_existing_calculated_quote_query
-
     with pytest.raises(ValueError, match="Margin rate cannot be 100% or more."):
-        quote_calculator.calculate_and_save_quote(quote_id=1, session=mock_session)
+        quote_calculator_service.calculate_and_save_quote(quote_id=1, session=mock_session)
 
 # TODO: Add more tests:
 # - Test with multiple product entries

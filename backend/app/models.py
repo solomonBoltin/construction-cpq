@@ -1,4 +1,5 @@
-from datetime import datetime, timezone # Add timezone import
+from datetime import datetime, timezone
+from enum import Enum # Add timezone import
 from pydantic import field_serializer, BaseModel as PydanticBaseModel, ConfigDict
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
@@ -107,6 +108,22 @@ class AppliedRateInfoEntry(PydanticBaseModel):
     def serialize_decimals_to_str(self, v: Decimal):
         return str(v)
 
+
+class QuoteType(str, Enum):
+    """Defines the type of quote, allowing for different business logic flows."""
+    GENERAL = "general"
+    FENCE_PROJECT = "fence_project"
+    DECK_PROJECT = "deck_project"
+
+class ProductRole(str, Enum):
+    """Defines the role of a product within a quote."""
+    DEFAULT = "default"  # Default role for products
+    MAIN = "main"
+    SECONDARY = "secondary"
+    ADDITIONAL = "additional"
+
+
+
 # SQLModel Table Models
 
 class UnitTypeBase(SQLModel):
@@ -132,6 +149,7 @@ class UnitType(UnitTypeBase, table=True):
 class ProductCategoryBase(SQLModel):
     id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
     name: str = Field(max_length=100, unique=True, index=True)
+    type: str = Field(default="general", max_length=50) # e.g., 'general', 'material', 'labor'
     image_url: Optional[str] = Field(default=None, max_length=255)
 
 class ProductCategory(ProductCategoryBase, table=True):
@@ -183,6 +201,7 @@ class ProductBase(SQLModel):
     description: Optional[str] = Field(default=None)
     product_unit_type_id: int = Field(foreign_key="unit_type.id")
     unit_labor_cost: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+    image_url: Optional[str] = Field(default=None, max_length=255) # New field for product image
 
 class Product(ProductBase, table=True):
     __tablename__ = "product"
@@ -323,7 +342,10 @@ class QuoteBase(SQLModel):
     name: Optional[str] = Field(default=None, max_length=255)
     description: Optional[str] = Field(default=None)
     quote_config_id: int = Field(foreign_key="quote_config.id")
-    status: str = Field(default="draft", max_length=20)
+    status: str = Field(default="draft", max_length=20, index=True) # Added index
+    quote_type: QuoteType = Field(default=QuoteType.GENERAL, sa_column_kwargs={"server_default": QuoteType.GENERAL}) # Default to GENERAL type
+    ui_state: Optional[str] = Field(default=None, max_length=100, index=True) # New field for UI state tracking
+    
     created_at: datetime = Field(
         default_factory=lambda: datetime.now(timezone.utc), # Replaced datetime.utcnow
         sa_column_kwargs={"server_default": func.now()}
@@ -335,8 +357,6 @@ class QuoteBase(SQLModel):
 
 class Quote(QuoteBase, table=True):
     __tablename__ = "quote"
-    id: Optional[int] = Field(default=None, primary_key=True)
-
     quote_config: "QuoteConfig" = Relationship(back_populates="quotes")
     product_entries: List["QuoteProductEntry"] = Relationship(back_populates="quote", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
     calculated_quote: Optional["CalculatedQuote"] = Relationship(
@@ -351,6 +371,7 @@ class QuoteProductEntryBase(SQLModel):
     product_id: int = Field(foreign_key="product.id") # ON DELETE RESTRICT is default if not specified for FK
     quantity_of_product_units: Decimal = Field(max_digits=10, decimal_places=2)
     notes: Optional[str] = Field(default=None)
+    role: ProductRole = Field(default=ProductRole.DEFAULT, sa_column_kwargs={"server_default": ProductRole.DEFAULT}) # Default to MAIN role
 
 class QuoteProductEntry(QuoteProductEntryBase, table=True):
     __tablename__ = "quote_product_entry"

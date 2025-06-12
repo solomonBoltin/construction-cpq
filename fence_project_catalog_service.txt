@@ -1,0 +1,1217 @@
+'''
+Okay, here's a summary of our conversation:
+
+**TASK DESCRIPTION:**
+The overall goal is to create the `QuoteProcessService`, its corresponding API (`QuoteProcessServiceAPI`), and a JavaScript client (`FenceQuoteProcessClient`). This includes specifying and implementing necessary changes to the data models and other parts of the codebase. The detailed plan for the `QuoteProcessService` methods is outlined in `fence_project_catalog_service.txt`. We are currently focused on implementing and testing the methods within `QuoteProcessService`, with an immediate focus on getting the tests in `backend/tests/services/test_quote_process.py` to pass.
+
+**COMPLETED:**
+1.  **Model Updates (Phase 1 of our plan):**
+    *   `backend/app/models.py`:
+        *   `QuoteBase`: Added `ui_state: Optional[str] = Field(default=None, max_length=100, index=True)`.
+        *   `ProductBase`: Added `image_url: Optional[str] = Field(default=None, max_length=255)`.
+    *   `backend/tests/test_model_updates_phase1.py`: Added tests for these model updates.
+2.  **`QuoteProcessService` Method Implementations & Initial Tests (Phases 2 & 3):**
+    *   Implemented and wrote initial tests for:
+        *   `update_quote_ui_state`
+class PydanticListJSONB(TypeDecorator):
+    """Handles lists of Pydantic models for JSONB storage.
+
+    Converts a list of Pydantic model instances to a list of dictionaries
+    for storage, and vice-versa. SQLAlchemy's JSONB type handles the
+    actual serialization/deserialization to/from a JSON string in the database.
+    """
+    impl = JSONB  # Use PostgreSQL JSONB type for native JSON support
+    cache_ok = True # Indicates that this TypeDecorator is cacheable
+
+    def __init__(self, pydantic_type: Type[PydanticBaseModel], *args: Any, **kwargs: Any):
+        self.pydantic_type = pydantic_type
+        super().__init__(*args, **kwargs)
+
+    def process_bind_param(self, value: Optional[List[PydanticBaseModel]], dialect: Any) -> Optional[List[dict]]:
+        """Convert Pydantic models to a list of dicts for JSONB storage."""
+        if value is None:
+            return None
+        if not all(isinstance(item, self.pydantic_type) for item in value):
+            raise ValueError(f"All items must be instances of {self.pydantic_type.__name__}")
+        # The `mode='json'` ensures that any custom serializers (like for Decimal) are applied.
+        return [item.model_dump(mode='json') for item in value]
+
+    def process_result_value(self, value: Optional[Any], dialect: Any) -> Optional[List[PydanticBaseModel]]:
+        """Convert a list of dicts (from JSONB) back to Pydantic models."""
+        if value is None:
+            return None
+        
+        # SQLAlchemy's JSONB type should already parse the JSON string from the DB into a Python list of dicts.
+        # If it's a string, it might be a default value or an issue with the JSONB type handling.
+        # For robustness, especially if dealing with defaults that might be strings.
+        data_to_parse: List[dict]
+        if isinstance(value, str):
+            try:
+                loaded_value = json.loads(value)
+                if not isinstance(loaded_value, list):
+                    # Or raise a more specific error, log a warning, etc.
+                    # This path suggests the DB string wasn't a JSON list.
+                    return [] 
+                data_to_parse = loaded_value
+            except json.JSONDecodeError:
+                # Handle cases where string is not valid JSON
+                # Depending on requirements, could raise error, log, or return empty/default.
+                # For now, returning empty list if parsing fails.
+                return [] 
+        elif isinstance(value, list):
+            data_to_parse = value
+        else:
+            # Unexpected type from the database for this column.
+            # Log warning or raise error. For now, returning empty list.
+            return []
+
+        try:
+            return [self.pydantic_type(**item) for item in data_to_parse]
+        except Exception as e: # Catch Pydantic validation errors or other issues
+            # Log the error, and decide on behavior (raise, return partial, return empty)
+            # For now, re-raising to make issues visible during development/testing
+            # In production, might prefer to return None or an empty list with logging.
+            # print(f"Error processing result value for PydanticListJSONB: {e}") # Consider proper logging
+            raise # Or return [] / None based on error handling strategy
+
+
+# Pydantic models for JSONB fields (not SQLModel table models)
+class BillOfMaterialEntry(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True) # Removed json_encoders
+
+    material_name: str
+    quantity: Decimal # Changed from float
+    unit_cost: Decimal # Changed from float
+    total_cost: Decimal # Changed from float
+    # Add unit_name for clarity in BOM
+    unit_name: Optional[str] = None
+    cull_units: Optional[Decimal] = None # Added cull_units
+    leftovers: Optional[Decimal] = None # Added leftovers
+
+    @field_serializer('quantity', 'unit_cost', 'total_cost', 'cull_units', 'leftovers', when_used='json')
+    def serialize_decimals_to_str(self, v: Optional[Decimal]):
+        if v is None:
+            return None
+        return str(v)
+
+
+class AppliedRateInfoEntry(PydanticBaseModel):
+    model_config = ConfigDict(from_attributes=True) # Removed json_encoders
+
+    name: str
+    type: str # e.g., 'margin', 'fee_on_cogs', 'fee_fixed', 'markup'
+    rate_value: Decimal # Changed from float
+    applied_amount: Decimal # Changed from float
+
+    @field_serializer('rate_value', 'applied_amount', when_used='json')
+    def serialize_decimals_to_str(self, v: Decimal):
+        return str(v)
+
+# SQLModel Table Models
+
+class UnitTypeBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    name: str = Field(max_length=50, unique=True, index=True)
+    category: str = Field(max_length=50)
+
+class UnitType(UnitTypeBase, table=True):
+    __tablename__ = "unit_type" # Explicitly define table name to match plan
+
+    materials_as_supplier_unit: List["Material"] = Relationship(
+        back_populates="supplier_unit_type",
+        sa_relationship_kwargs={'foreign_keys': '[Material.supplier_unit_type_id]'}
+    )
+    materials_as_base_unit: List["Material"] = Relationship(
+        back_populates="base_unit_type",
+        sa_relationship_kwargs={'foreign_keys': '[Material.base_unit_type_id]'}
+    )
+    products: List["Product"] = Relationship(back_populates="product_unit_type")
+
+
+# New ProductCategory Model
+class ProductCategoryBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    name: str = Field(max_length=100, unique=True, index=True)
+    image_url: Optional[str] = Field(default=None, max_length=255)
+
+class ProductCategory(ProductCategoryBase, table=True):
+    __tablename__ = "product_category"
+
+    product_links: List["ProductProductCategoryLink"] = Relationship(back_populates="category")
+
+# New Link Table for Product and ProductCategory
+class ProductProductCategoryLink(SQLModel, table=True):
+    __tablename__ = "product_product_category_link"
+    product_id: int = Field(default=None, foreign_key="product.id", primary_key=True)
+    product_category_id: int = Field(default=None, foreign_key="product_category.id", primary_key=True)
+
+    product: "Product" = Relationship(back_populates="category_links")
+    category: "ProductCategory" = Relationship(back_populates="product_links")
+
+
+class MaterialBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    name: str = Field(max_length=255, unique=True, index=True)
+    description: Optional[str] = Field(default=None)
+    cost_per_supplier_unit: Decimal = Field(max_digits=10, decimal_places=2)
+    supplier_unit_type_id: Optional[int] = Field(default=None, foreign_key="unit_type.id")
+    quantity_in_supplier_unit: Decimal = Field(default=Decimal("1.0"), max_digits=10, decimal_places=3)
+    base_unit_type_id: int = Field(foreign_key="unit_type.id")
+    cull_rate: Optional[float] = Field(default=0.0) # Added cull_rate property
+
+class Material(MaterialBase, table=True):
+    __tablename__ = "material"
+
+    supplier_unit_type: Optional["UnitType"] = Relationship(
+        back_populates="materials_as_supplier_unit",
+        sa_relationship_kwargs={'foreign_keys': '[Material.supplier_unit_type_id]'}
+    )
+    base_unit_type: "UnitType" = Relationship(
+        back_populates="materials_as_base_unit",
+        sa_relationship_kwargs={'foreign_keys': '[Material.base_unit_type_id]'}
+    )
+    
+    product_materials: List["ProductMaterial"] = Relationship(back_populates="material")
+    variation_option_materials: List["VariationOptionMaterial"] = Relationship(back_populates="material")
+    cull_rate: Optional[float] = Field(default=0.0) # Added cull_rate property
+
+
+class ProductBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    name: str = Field(max_length=255, unique=True, index=True)
+    description: Optional[str] = Field(default=None)
+    product_unit_type_id: int = Field(foreign_key="unit_type.id")
+    unit_labor_cost: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+
+class Product(ProductBase, table=True):
+    __tablename__ = "product"
+    
+    product_unit_type: "UnitType" = Relationship(back_populates="products")
+    category_links: List["ProductProductCategoryLink"] = Relationship(back_populates="product")
+    product_materials: List["ProductMaterial"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    variation_groups: List["VariationGroup"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    
+    quote_product_entries: List["QuoteProductEntry"] = Relationship(back_populates="product", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+class ProductMaterialBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Added id as surrogate PK
+    name:  Optional[str] = Field(
+        sa_column=Column(
+            String, 
+            comment="Autogenerated by trigger: 'quantity of material_name'"
+        )
+    )
+    product_id: int = Field(foreign_key="product.id")
+    material_id: int = Field(foreign_key="material.id")
+    material_amount: Decimal = Field(max_digits=50, decimal_places=25)
+
+
+class ProductMaterial(ProductMaterialBase, table=True):
+    __tablename__ = "product_material"
+    # product_id and material_id are part of a unique constraint, not composite PK here
+    __table_args__ = (UniqueConstraint("product_id", "material_id", name="uq_product_material_prod_mat"),)
+
+    product: "Product" = Relationship(back_populates="product_materials")
+    material: "Material" = Relationship(back_populates="product_materials")
+
+
+# PostgreSQL script to autogenerate the name field in model
+set_product_material_name_trigger = DDL('''
+    CREATE OR REPLACE FUNCTION set_product_material_name()
+    RETURNS TRIGGER AS $$
+    BEGIN
+        NEW.name := (
+            SELECT CONCAT(
+                NEW.material_amount::numeric(50, 2), -- Cast for consistent formatting
+                ' of ', 
+                m.name
+            )
+            FROM material AS m 
+            WHERE m.id = NEW.material_id
+        );
+        RETURN NEW;
+    END;
+    $$ LANGUAGE plpgsql;
+
+    -- Drop the trigger if it already exists to prevent errors on re-creation
+    DROP TRIGGER IF EXISTS trg_set_product_material_name ON product_material;
+
+    -- Create the trigger that executes the function before an insert or update
+    CREATE TRIGGER trg_set_product_material_name
+    BEFORE INSERT OR UPDATE ON product_material
+    FOR EACH ROW
+    EXECUTE FUNCTION set_product_material_name();
+''')
+
+# Register the trigger when the model is created
+event.listen(
+    ProductMaterial.__table__,
+    'after_create',
+    set_product_material_name_trigger
+)
+
+
+class VariationGroupBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    name: str = Field(max_length=100)
+    product_id: int = Field(foreign_key="product.id")
+    selection_type: str = Field(default="single_choice", max_length=20) # 'single_choice', 'multi_choice'
+    is_required: bool = Field(default=False)
+
+class VariationGroup(VariationGroupBase, table=True):
+    __tablename__ = "variation_group"
+    # id is inherited from VariationGroupBase and used as PK
+    __table_args__ = (UniqueConstraint("product_id", "name", name="uq_variation_group_product_name"),)
+
+    product: "Product" = Relationship(back_populates="variation_groups")
+    options: List["VariationOption"] = Relationship(back_populates="variation_group", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+
+
+class VariationOptionBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    name: str = Field(max_length=100)
+    variation_group_id: int = Field(foreign_key="variation_group.id")
+    value_description: Optional[str] = Field(default=None)
+    additional_price: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+    price_multiplier: Decimal = Field(default=Decimal("1.000"), max_digits=5, decimal_places=3)
+    additional_labor_cost_per_product_unit: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+
+class VariationOption(VariationOptionBase, table=True):
+    __tablename__ = "variation_option"
+    # id is inherited from VariationOptionBase and used as PK
+    __table_args__ = (UniqueConstraint("variation_group_id", "name", name="uq_variation_option_group_name"),)
+
+    variation_group: "VariationGroup" = Relationship(back_populates="options")
+    variation_option_materials: List["VariationOptionMaterial"] = Relationship(back_populates="variation_option", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    quote_product_entry_variations: List["QuoteProductEntryVariation"] = Relationship(back_populates="variation_option")
+
+
+class VariationOptionMaterialBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Added id as surrogate PK
+    variation_option_id: int = Field(foreign_key="variation_option.id")
+    material_id: int = Field(foreign_key="material.id")
+    quantity_of_material_base_units_added: Decimal = Field(max_digits=10, decimal_places=3)
+
+class VariationOptionMaterial(VariationOptionMaterialBase, table=True):
+    __tablename__ = "variation_option_material"
+    # id is inherited from VariationOptionMaterialBase and used as PK
+    __table_args__ = (UniqueConstraint("variation_option_id", "material_id", name="uq_vom_option_material"),)
+
+    variation_option: "VariationOption" = Relationship(back_populates="variation_option_materials")
+    material: "Material" = Relationship(back_populates="variation_option_materials")
+
+
+class QuoteConfigBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    name: str = Field(default="Default Quote Config", max_length=100, unique=True, index=True)
+    margin_rate: Decimal = Field(default=Decimal("0.30"), max_digits=5, decimal_places=4)
+    tax_rate: Decimal = Field(default=Decimal("0.00"), max_digits=5, decimal_places=4)
+    sales_commission_rate: Decimal = Field(default=Decimal("0.00"), max_digits=5, decimal_places=4)
+    franchise_fee_rate: Decimal = Field(default=Decimal("0.00"), max_digits=5, decimal_places=4)
+    additional_fixed_fees: Decimal = Field(default=Decimal("0.00"), max_digits=10, decimal_places=2)
+    round_up_materials: bool = Field(default=True) # New field
+
+class QuoteConfig(QuoteConfigBase, table=True):
+    __tablename__ = "quote_config"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    quotes: List["Quote"] = Relationship(back_populates="quote_config")
+
+
+class QuoteBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    name: Optional[str] = Field(default=None, max_length=255)
+    description: Optional[str] = Field(default=None)
+    quote_config_id: int = Field(foreign_key="quote_config.id")
+    status: str = Field(default="draft", max_length=20)
+    created_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), # Replaced datetime.utcnow
+        sa_column_kwargs={"server_default": func.now()}
+    )
+    updated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), # Replaced datetime.utcnow
+        sa_column_kwargs={"server_default": func.now(), "onupdate": func.now()}
+    )
+
+class Quote(QuoteBase, table=True):
+    __tablename__ = "quote"
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    quote_config: "QuoteConfig" = Relationship(back_populates="quotes")
+    product_entries: List["QuoteProductEntry"] = Relationship(back_populates="quote", sa_relationship_kwargs={"cascade": "all, delete-orphan"})
+    calculated_quote: Optional["CalculatedQuote"] = Relationship(
+        back_populates="quote",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan", "uselist": False} # One-to-one
+    )
+
+
+class QuoteProductEntryBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    quote_id: int = Field(foreign_key="quote.id")
+    product_id: int = Field(foreign_key="product.id") # ON DELETE RESTRICT is default if not specified for FK
+    quantity_of_product_units: Decimal = Field(max_digits=10, decimal_places=2)
+    notes: Optional[str] = Field(default=None)
+
+class QuoteProductEntry(QuoteProductEntryBase, table=True):
+    __tablename__ = "quote_product_entry"
+    id: Optional[int] = Field(default=None, primary_key=True)
+
+    quote: "Quote" = Relationship(back_populates="product_entries")
+    product: "Product" = Relationship(back_populates="quote_product_entries")
+    selected_variations: List["QuoteProductEntryVariation"] = Relationship(
+        back_populates="quote_product_entry",
+        sa_relationship_kwargs={"cascade": "all, delete-orphan"}
+    )
+
+
+class QuoteProductEntryVariationBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Added id as surrogate PK
+    quote_product_entry_id: int = Field(foreign_key="quote_product_entry.id")
+    variation_option_id: int = Field(foreign_key="variation_option.id") # ON DELETE RESTRICT
+
+class QuoteProductEntryVariation(QuoteProductEntryVariationBase, table=True):
+    __tablename__ = "quote_product_entry_variation"
+    id: Optional[int] = Field(default=None, primary_key=True) # Surrogate PK
+    __table_args__ = (UniqueConstraint("quote_product_entry_id", "variation_option_id", name="uq_qpev_entry_option"),)
+
+    quote_product_entry: "QuoteProductEntry" = Relationship(back_populates="selected_variations")
+    variation_option: "VariationOption" = Relationship(back_populates="quote_product_entry_variations")
+
+
+class CalculatedQuoteBase(SQLModel):
+    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    quote_id: int = Field(foreign_key="quote.id", unique=True) # Ensures one-to-one with Quote
+    bill_of_materials_json: Optional[List[BillOfMaterialEntry]] = Field(
+        default=None, sa_column=Column(PydanticListJSONB(BillOfMaterialEntry)) # Use custom TypeDecorator
+    )
+    total_material_cost: Decimal = Field(max_digits=12, decimal_places=2)
+    total_labor_cost: Decimal = Field(max_digits=12, decimal_places=2)
+    cost_of_goods_sold: Decimal = Field(max_digits=12, decimal_places=2)
+    applied_rates_info_json: Optional[List[AppliedRateInfoEntry]] = Field(
+        default=None, sa_column=Column(PydanticListJSONB(AppliedRateInfoEntry)) # Use custom TypeDecorator
+    )
+    subtotal_before_tax: Decimal = Field(max_digits=12, decimal_places=2)
+    tax_amount: Decimal = Field(max_digits=12, decimal_places=2)
+    final_price: Decimal = Field(max_digits=12, decimal_places=2)
+    calculated_at: datetime = Field(
+        default_factory=lambda: datetime.now(timezone.utc), # Replaced datetime.utcnow
+        sa_column_kwargs={"server_default": func.now()}
+    )
+
+class CalculatedQuote(CalculatedQuoteBase, table=True):
+    __tablename__ = "calculated_quote"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    quote: "Quote" = Relationship(back_populates="calculated_quote")
+
+
+
+
+
+#quote_calculator
+from decimal import Decimal, ROUND_HALF_UP
+from typing import Dict, List, Tuple
+from datetime import datetime, timezone
+import logging
+import math # Add this import
+
+from sqlmodel import Session, select
+
+from app.models import (
+    Quote,
+    QuoteProductEntry,
+    ProductMaterial,
+    VariationOptionMaterial,
+    Material,
+    CalculatedQuote,
+    CalculatedQuoteBase,
+    BillOfMaterialEntry,
+    AppliedRateInfoEntry,
+    UnitType,
+)
+
+# Helper to get a Decimal with a specific precision (e.g., for currency)
+def quantize_decimal(value: Decimal, precision: str = "0.0001") -> Decimal: 
+    return value.quantize(Decimal(precision), rounding=ROUND_HALF_UP)
+
+def final_quantize_decimal(value: Decimal, precision: str = "0.01") -> Decimal: 
+    return value.quantize(Decimal(precision), rounding=ROUND_HALF_UP)
+
+# Explicitly configure logger for this module
+logger = logging.getLogger("app.services.quote_calculator")
+logger.setLevel(logging.DEBUG)
+
+# Add a test log message
+logger.debug("QuoteCalculator logging is configured correctly.")
+# Enable logger propagation
+logger.propagate = True
+
+# Add another test log message
+logger.info("Logger propagation is enabled for QuoteCalculator.")
+
+class QuoteCalculator:
+    def _get_material_cost_per_base_unit(self, material: Material) -> Decimal:
+        if material.quantity_in_supplier_unit == Decimal(0):
+            # Avoid division by zero if quantity_in_supplier_unit is zero
+            return Decimal(0)
+        return material.cost_per_supplier_unit / material.quantity_in_supplier_unit
+
+    def calculate_and_save_quote(
+        self, quote_id: int, session: Session
+    ) -> CalculatedQuote:
+        logger.info(f"Starting quote calculation for Quote ID: {quote_id}")
+        
+        try: # Add try-except block for robust error logging
+            quote = session.get(Quote, quote_id)
+            if not quote:
+                logger.error(f"Quote with id {quote_id} not found during calculation.")
+                raise ValueError(f"Quote with id {quote_id} not found")
+            if not quote.quote_config:
+                logger.error(f"QuoteConfig not found for Quote with id {quote_id} during calculation.")
+                raise ValueError(
+                    f"QuoteConfig not found for Quote with id {quote_id}"
+                )
+            logger.debug(f"Successfully fetched Quote ID: {quote_id} and its QuoteConfig ID: {quote.quote_config_id}")
+
+            total_material_cost_for_quote = Decimal(0)
+            total_labor_cost_for_quote = Decimal(0)
+            bill_of_materials_aggregated: Dict[
+                Tuple[int, str], BillOfMaterialEntry
+            ] = {}  # (material_id, base_unit_name) -> BillOfMaterialEntry
+
+            for entry in quote.product_entries:
+                logger.debug(f"Processing QuoteProductEntry ID: {entry.id}")
+                product = entry.product
+                if not product:
+                    logger.error(f"Product not found for QuoteProductEntry ID: {entry.id}")
+                    raise ValueError(
+                        f"Product not found for QuoteProductEntry with id {entry.id}"
+                    )
+
+                product_quantity = entry.quantity_of_product_units
+                product_base_labor_cost = (
+                    product.unit_labor_cost * product_quantity
+                )
+                total_labor_cost_for_quote += product_base_labor_cost
+
+                # --- Material cost calculation for the product entry ---
+                # 1. Base materials for the product
+                for pm in product.product_materials:
+                    material = pm.material
+                    logger.debug(f"Processing Material ID: {material.id}, Name: {material.name}")
+                    if not material or not material.base_unit_type: # Ensure base_unit_type is loaded
+                        logger.error(f"Material or its base unit type not found for ProductMaterial ID: {pm.id}")
+                        raise ValueError(f"Material or its base unit type not found for ProductMaterial id {pm.id}")
+
+                    cost_per_base_unit = self._get_material_cost_per_base_unit(material)
+                    quantity_needed_for_product = (
+                        pm.material_amount
+                        * product_quantity
+                    )
+                    
+                    cull_units = Decimal(0)
+                    if material.cull_rate and material.cull_rate > 0:
+                        cull_units = quantity_needed_for_product * Decimal(str(material.cull_rate))
+                    
+                    total_quantity_needed = quantity_needed_for_product + cull_units
+
+                    bom_key = (material.id, material.base_unit_type.name)
+                    if bom_key not in bill_of_materials_aggregated:
+                        bill_of_materials_aggregated[bom_key] = BillOfMaterialEntry(
+                            material_name=material.name,
+                            quantity=Decimal(0),
+                            unit_cost=cost_per_base_unit,
+                            total_cost=Decimal(0),
+                            unit_name=material.base_unit_type.name,
+                            cull_units=Decimal(0) 
+                        )
+                    
+                    bill_of_materials_aggregated[bom_key].quantity += total_quantity_needed
+                    if bill_of_materials_aggregated[bom_key].cull_units is None: # Ensure cull_units is initialized
+                        bill_of_materials_aggregated[bom_key].cull_units = Decimal(0)
+                    bill_of_materials_aggregated[bom_key].cull_units += cull_units
+                    # Total cost will be recalculated later after rounding quantities
+
+                # 2. Materials from selected variations for the product entry
+                for qpev in entry.selected_variations:
+                    variation_option = qpev.variation_option
+                    logger.debug(f"Processing VariationOption ID: {variation_option.id}, Name: {variation_option.name}")
+                    if not variation_option:
+                        logger.error(f"VariationOption not found for QuoteProductEntryVariation ID: {qpev.id}")
+                        raise ValueError(
+                            f"VariationOption not found for QuoteProductEntryVariation id {qpev.id}"
+                        )
+
+                    # Add variation's direct additional labor cost
+                    total_labor_cost_for_quote += (
+                        variation_option.additional_labor_cost_per_product_unit
+                        * product_quantity
+                    )
+                    
+                    # Add/modify materials based on variation
+                    for vom in variation_option.variation_option_materials:
+                        material = vom.material
+                        if not material or not material.base_unit_type: # Ensure base_unit_type is loaded
+                            logger.error(f"Material or its base unit type not found for VariationOptionMaterial id {vom.id}")
+                            raise ValueError(f"Material or its base unit type not found for VariationOptionMaterial id {vom.id}")
+                        
+                        cost_per_base_unit = self._get_material_cost_per_base_unit(
+                            material
+                        )
+                        quantity_added_or_removed_for_product = (
+                            vom.quantity_of_material_base_units_added * product_quantity
+                        )
+
+                        cull_units_variation = Decimal(0)
+                        if material.cull_rate and material.cull_rate > 0:
+                             # Apply cull rate only to added quantities, not removed (negative)
+                            if quantity_added_or_removed_for_product > 0:
+                                cull_units_variation = quantity_added_or_removed_for_product * Decimal(str(material.cull_rate))
+
+                        total_quantity_added_or_removed = quantity_added_or_removed_for_product + cull_units_variation
+
+                        bom_key = (material.id, material.base_unit_type.name)
+                        if bom_key not in bill_of_materials_aggregated:
+                            bill_of_materials_aggregated[bom_key] = BillOfMaterialEntry(
+                                material_name=material.name,
+                                quantity=Decimal(0),
+                                unit_cost=cost_per_base_unit,
+                                total_cost=Decimal(0),
+                                unit_name=material.base_unit_type.name,
+                                cull_units=Decimal(0)
+                            )
+                        
+                        bill_of_materials_aggregated[bom_key].quantity += total_quantity_added_or_removed
+                        if bill_of_materials_aggregated[bom_key].cull_units is None: # Ensure cull_units is initialized
+                            bill_of_materials_aggregated[bom_key].cull_units = Decimal(0)
+                        bill_of_materials_aggregated[bom_key].cull_units += cull_units_variation
+                        # Total cost will be recalculated later
+            
+            # Recalculate BOM entries with rounded quantities and update total material cost
+            total_material_cost_for_quote = Decimal(0) # Re-initialize before summing up rounded costs
+            for bom_entry in bill_of_materials_aggregated.values():
+                # Calculate leftovers before rounding up quantity
+                original_quantity = bom_entry.quantity
+                
+                if quote.quote_config.round_up_materials: # Check the flag
+                    rounded_quantity = Decimal(math.ceil(original_quantity))
+                    leftover_amount = rounded_quantity - original_quantity
+                    bom_entry.leftovers = quantize_decimal(leftover_amount) if leftover_amount > 0 else Decimal(0)
+                else:
+                    rounded_quantity = original_quantity # No rounding
+                    bom_entry.leftovers = Decimal(0) # No leftovers if not rounding up
+                
+                bom_entry.quantity = rounded_quantity
+
+                # Round up cull units separately for reporting, if needed, or keep as calculated
+                if bom_entry.cull_units is not None:
+                    bom_entry.cull_units = quantize_decimal(bom_entry.cull_units) # Or math.ceil if whole units are culled
+
+                bom_entry.total_cost = bom_entry.quantity * bom_entry.unit_cost
+                bom_entry.total_cost = final_quantize_decimal(bom_entry.total_cost) 
+                total_material_cost_for_quote += bom_entry.total_cost
+
+            # Finalize BOM list
+            final_bom_list = [
+                bom_entry for bom_entry in bill_of_materials_aggregated.values()
+            ]
+
+            # --- COGS Calculation ---
+            cost_of_goods_sold = total_material_cost_for_quote + total_labor_cost_for_quote
+
+            # --- Apply QuoteConfig Rates ---
+            quote_config = quote.quote_config
+            applied_rates_info: List[AppliedRateInfoEntry] = []
+            current_subtotal = cost_of_goods_sold
+
+            # 1. Sales Commission (on COGS)
+            if quote_config.sales_commission_rate > 0:
+                commission_amount = cost_of_goods_sold * quote_config.sales_commission_rate
+                applied_rates_info.append(
+                    AppliedRateInfoEntry(
+                        name="Sales Commission",
+                        type="fee_on_cogs",
+                        rate_value=quote_config.sales_commission_rate,
+                        applied_amount=commission_amount,
+                    )
+                )
+                current_subtotal += commission_amount
+
+            # 2. Franchise Fee (on COGS)
+            if quote_config.franchise_fee_rate > 0:
+                franchise_fee_amount = cost_of_goods_sold * quote_config.franchise_fee_rate
+                applied_rates_info.append(
+                    AppliedRateInfoEntry(
+                        name="Franchise Fee",
+                        type="fee_on_cogs",
+                        rate_value=quote_config.franchise_fee_rate,
+                        applied_amount=franchise_fee_amount,
+                    )
+                )
+                current_subtotal += franchise_fee_amount
+            
+            # 3. Margin (on the subtotal after COGS-based fees)
+            # The plan implies margin is on COGS, but typically margin is applied on the cost *after* direct fees tied to COGS.
+            # Let's assume margin is applied on (COGS + COGS-based fees).
+            # If margin is strictly on COGS, then `cost_base_for_margin = cost_of_goods_sold`
+            cost_base_for_margin = current_subtotal 
+            if quote_config.margin_rate > 0:
+                # Margin calculation: Price = Cost / (1 - MarginRate)
+                # Markup Amount = Price - Cost = Cost * MarginRate / (1 - MarginRate)
+                if quote_config.margin_rate >= 1:
+                     raise ValueError("Margin rate cannot be 100% or more.")
+                margin_amount = (cost_base_for_margin * quote_config.margin_rate) / (1 - quote_config.margin_rate)
+                
+                applied_rates_info.append(
+                    AppliedRateInfoEntry(
+                        name="Margin",
+                        type="margin", # This is a margin, not a simple markup fee
+                        rate_value=quote_config.margin_rate,
+                        applied_amount=margin_amount,
+                    )
+                )
+                current_subtotal += margin_amount
+
+
+            # 4. Additional Fixed Fees (added after margin)
+            if quote_config.additional_fixed_fees > 0:
+                applied_rates_info.append(
+                    AppliedRateInfoEntry(
+                        name="Additional Fixed Fees",
+                        type="fee_fixed",
+                        rate_value=quote_config.additional_fixed_fees, # Store the fixed amount as 'rate'
+                        applied_amount=quote_config.additional_fixed_fees,
+                    )
+                )
+                current_subtotal += quote_config.additional_fixed_fees
+            
+            subtotal_before_tax = current_subtotal
+
+            # --- Tax Calculation (on subtotal_before_tax) ---
+            tax_amount = Decimal(0)
+            if quote_config.tax_rate > 0:
+                tax_amount = subtotal_before_tax * quote_config.tax_rate
+            
+            final_price = subtotal_before_tax + tax_amount
+
+            # --- Create or Update CalculatedQuote ---
+            # Round all final Decimal values to 2 decimal places
+            rounding_precision = Decimal('0.01')
+            logger.debug(f"Preparing CalculatedQuote data for Quote ID: {quote_id}")
+
+            calculated_quote_data = CalculatedQuoteBase(
+                quote_id=quote_id,
+                bill_of_materials_json=[ # Convert list of Pydantic models to list of dicts
+                    bom.model_dump(mode='json') # Use model_dump(mode='json') for Pydantic models
+                    for bom in final_bom_list
+                ],
+                total_material_cost=total_material_cost_for_quote.quantize(rounding_precision, ROUND_HALF_UP),
+                total_labor_cost=total_labor_cost_for_quote.quantize(rounding_precision, ROUND_HALF_UP),
+                cost_of_goods_sold=cost_of_goods_sold.quantize(rounding_precision, ROUND_HALF_UP),
+                applied_rates_info_json=[ # Convert list of Pydantic models to list of dicts
+                    rate.model_dump(mode='json') # Use model_dump(mode='json') for Pydantic models
+                    for rate in applied_rates_info
+                ],
+                subtotal_before_tax=subtotal_before_tax.quantize(rounding_precision, ROUND_HALF_UP),
+                tax_amount=tax_amount.quantize(rounding_precision, ROUND_HALF_UP),
+                final_price=final_price.quantize(rounding_precision, ROUND_HALF_UP),
+            )
+            logger.debug(f"CalculatedQuoteBase data prepared: {calculated_quote_data.model_dump_json(indent=2)}")
+
+            # Check if a CalculatedQuote already exists for this quote_id
+            logger.debug(f"Checking for existing CalculatedQuote for Quote ID: {quote_id}")
+            existing_calculated_quote = session.exec(
+                select(CalculatedQuote).where(CalculatedQuote.quote_id == quote_id)
+            ).first()
+
+            if existing_calculated_quote:
+                logger.info(f"Found existing CalculatedQuote ID: {existing_calculated_quote.id} for Quote ID: {quote_id}. Updating.")
+                # Update existing
+                for key, value in calculated_quote_data.model_dump(exclude_unset=True).items():
+                    setattr(existing_calculated_quote, key, value)
+                db_calculated_quote = existing_calculated_quote
+            else:
+                logger.info(f"No existing CalculatedQuote found for Quote ID: {quote_id}. Creating new.")
+                # Create new
+                db_calculated_quote = CalculatedQuote.model_validate(calculated_quote_data)
+            
+            logger.debug(f"Adding CalculatedQuote object to session for Quote ID: {quote_id}")
+            session.add(db_calculated_quote)
+            
+            # Update quote status
+            logger.debug(f"Updating status of Quote ID: {quote_id} to 'calculated'.")
+            quote.status = "calculated"
+            session.add(quote)
+            
+            logger.info(f"Committing session for Quote ID: {quote_id}")
+            session.commit()
+            logger.info(f"Session committed successfully for Quote ID: {quote_id}")
+
+            logger.debug(f"Refreshing db_calculated_quote instance for Quote ID: {quote_id}")
+            session.refresh(db_calculated_quote)
+            if quote: # mypy check
+                 logger.debug(f"Refreshing quote instance for Quote ID: {quote_id}")
+                 session.refresh(quote)
+
+            logger.info(f"Quote calculation and save successful for Quote ID: {quote_id}. Returning CalculatedQuote ID: {db_calculated_quote.id}")
+            return db_calculated_quote
+
+        except Exception as e:
+            logger.error(f"Error during quote calculation for Quote ID: {quote_id}: {str(e)}", exc_info=True)
+            session.rollback() # Rollback in case of error
+            logger.info(f"Session rolled back for Quote ID: {quote_id} due to error.")
+            raise # Re-raise the exception after logging
+
+
+
+
+
+
+ catalog service 
+ giving you (
+  get_session,
+  create_quote(name, description, quote_config_id),
+  update_quote_state(id, state),
+  
+
+  categories_preview()->(name, img),
+  products_preview(category=x)->(name, img), 
+  product_entry_view(id)->(name, img, description, variation_entry_views))
+  product_variation_entry_view(id)->(name, description,type, options(id, name, img))
+  add_product_to_quote(quote_id, product_id, variation_entries)
+  create_quote_product_entry(quote_id, product_id, quantity, variation_entries) -> new_quote_product_entry
+  update_quote_product_entry(quote_id, product_entry_id, quantity, variation_entries) -> updated_quote_product_entry
+
+
+  calculate_quote(quote_id) -> calculated_quote
+  
+
+client
+coockie: quote_id / if null shows wellcom page with create quote button
+when create quote is clicked, it creates a new quote sets the coki and redirect to catalog
+
+catalog:
+state:
+  
+  select_category : [
+
+       shows categories previews (get_catogories_preview() -> List[Dict[name, img]]
+  ]
+
+  selected_main_product: [
+    shows procuct previews of category x (get_products_preview(category=x) -> List[Dict[name, img])
+  ]
+
+  popup product entry [
+    shows product_entry_view(id=x) (get_product_entry_view(id=x) -> Dict[name, img, description, variation_entry_views])
+     main_product_deatils: eg fence
+     size, cap, trim, style, then 
+    
+    (set_quote_product_entry(quote_id, product_id, quantity) -> new_quote_product_entry) (if provided with product entry id it will update else create a new one)
+    (set_quote_product_option_entry(quote_product_entry_id, variation_entries) -> updated_quote_product_entry ) if provided with variation entries it will update the existing variation entrie else it will create a new one
+    
+    next btn
+  ]
+
+  select secondary product [
+    shows secondary product previews
+    eg gatex, gatey,
+    next btn 
+  ]
+
+ secondary product entry [
+    shows product_entry_view(id=x)
+    main_product_deatils: eg gate
+    
+  ]
+
+  select variations [
+    shows variation_entry_views for main and secondary products
+    eg style, cap, trim, etc
+    click on them will add them to the quote product entry
+  ]
+
+  quote_product_list [
+    shows all products added to the quote with their variations and quantities
+    can edit quantities and remove products
+  ]
+
+  calculate quote [
+    shows calculated quote view with total price, bill of materials, labor costs, etc.
+  ]
+ ]
+
+ addition products - eg hardigging / tare down / 
+ click on them will add them and make it selected 
+ get quote btn, total 
+ quote.pdf, quote_info.pdf
+
+lets create the python catalog_service.py singelton that will handle all the logic for the catalog service
+
+
+
+
+optional product entry view DTO:
+# In your DTOs file or alongside the service class
+
+from pydantic import BaseModel as PydanticBaseModel, ConfigDict
+from typing import List, Optional
+from decimal import Decimal
+
+# DTO for a single choice within a variation group (e.g., "Dog Ear Style")
+class VariationOptionView(PydanticBaseModel):
+    """Represents a single, clickable option for a variation."""
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    name: str
+    value_description: Optional[str]
+    additional_price: Decimal
+    
+    # This is the key field for the UI. It will be true if this option is
+    # currently selected for the product entry being viewed.
+    is_selected: bool = False
+
+
+
+continue crafting:
+class CatalogSession:
+    id: int
+    quotes: List[Quote]  # List of quotes linked to this session
+    current_quote: Optional[Quote] = None  # The current quote being worked on
+
+
+class CatalogService:
+
+    get_catalog_session(id=none)
+      # manages a catlog session that can be linked to multiple quotes 
+      if id is None it will create a new session and return it
+
+    set_quote(session_id, quote_id/n, name, description, quote_config_id, state)
+        # creates or updates a quote and links it to the session
+    get_quote(quote_id)
+
+    set_quote_product_entry(quote_id, product_id, product_entry_id/n, quantity)
+        # creates or updates a quote product entry
+
+    set_quote_product_option_entry(quote_product_entry_id, variation_entries)
+        # creates or updates a quote product option entry with variations
+
+    select_main_product(session_id, product_id)
+    select_main_product_variation(session_id, variation_group_id, variation_option_id)
+    
+    select_secondary_product(session_id, product_id)
+    select_secondary_product_variation(session_id, variation_group_id, variation_option_id)
+
+    select_additional_product(session_id, product_id) -> id 
+    select_additional_product_variation(session_id, product_entry_id, variation_group_id, variation_option_id)
+
+    calculate_quote(quote_id) -> CalculatedQuote
+        # Calculates the quote and returns the calculated quote object
+      
+    get_quote_client_pdf(quote_id) -> bytes
+    
+
+class CatalogServiceV1 eg: fence_project_catalog_service:
+    main_product_category_type: str = "fence"
+    secondary_product_category_type: str = "gate"
+    addtional_product_category_type: str = "additional" 
+
+    get_quotes_previews () -> List[QuotePreview]
+    get_quote() -> Quote
+    
+    get_categories_previews_by_type(category_type: str) -> List[CategoryPreview]
+    get_products_previews_by_category(category: Category) -> List[ProductPreview]
+    get_products_previews_by_category_type(category_type: str) -> List[ProductPreview]
+    create_quote() -> Quote
+    get_product() -> Product or MaterializedProduct
+    get_quote_product_entries() -> List[QuoteProductEntry]
+    add_quote_product_entry() -> QuoteProductEntry
+    validate_product_entry() -> bool, message (cechks if the product entry is valid (e.g quantity > 0, variations selected, etc.))
+    update_quote_product_entry() -> QuoteProductEntry
+    delete_quote_product_entry() -> None
+    get_quote_product_variation_option_entry() -> List[QuoteProductEntryVariation]
+    set_quote_product_variation_option_entry() -> QuoteProductEntryVariation
+    valdate_quote() -> bool, message (checks if the quote is valid (e.g all required product entries valid, etc))
+
+
+
+
+
+
+
+
+class FenceProjectQuote:
+    quote_id: int
+    main_product_entry: (product with role ProductRole.MAIN)
+    secondary_product_entry: Optional[ProductEntry] = None  # (product with role ProductRole.SECONDARY)
+    additional_product_entries: List[ProductEntry] = []  # (products with role ProductRole.ADDITIONAL)
+
+    product_type: QuoteType = QuoteType.FENCE  # Type of the quote, e.g., fence, gate, etc.
+    product_category: str # e.g. "wood
+    state: pick_product_category / pick_main_product / pick_secondary_product / pick_additional_products / calculate_quote
+    
+    submit_main_product_entries: (user has clicked next)
+    submit_secondary_product: 
+    submit_empty: []
+    state = (
+        if category is none pick_product_category
+        if main_product is none pick_main_product
+        if "secondary_product" not in submit_empty and secondary_product is none pick_secondary_product
+        if "secondary_product" not in submit_empty and 
+
+
+    autocalculate_state vs trust state position
+    autocalculate_state: 
+        state is auto decided driven from (quote properties / submit track)
+    trust_state_position:
+        state is set by user interaction, e.g. user clicks next button, or selects a product, etc.
+        means frontend controlls the state, 
+
+class FenceProjectQuoteBuilderV2:
+    pass
+
+
+
+BasicUiDesine:
+    State:
+       - main_state (pick_or_create_quote, quote_catalog)
+       - selected_quote
+       - selected_main_product_category
+       - selected_main_product (product_entry_id)
+       - selected_secondary_product (product_entry_id)
+       - selected_additional_products (List[product_entry_id])
+
+
+    - pick_or_create_quote: 
+      - shows list of quotes with their previews (name, description, total price, status)
+      - create new quote button
+      - select existing quote button
+    - quote_catalog:
+        - sidebar showing current quote summary (name, description, products (eg: 5 ft postmaster fence, 1 gate, etc), total price value and refresh button (disabled if quote is not valid))
+        - main_cataolg_view:
+            - Stepper navigation for the quote process (
+                main_product_categories,
+                choose_main_product,
+                main_product_entry (dynamic step, appares if main product is selected), (or other solution to prevent acsessing step if no main product is selected)
+                choose_secondary_product,
+                secondary_product_entry, (same as main product entry)
+                select_additional_products, (can edit the selected additional products entries by btn in product preview that opens there product preview popup )
+                addition_product_entries( multiple dynamic steps or other solution)
+                calculated_quote_preview
+                ) allowing to pick any step at any time
+            - product entry popup that allows to set or edit a product entry and all its required properties (e.g quantity, variations, etc) in nice ui 
+            - not entirely sure on if product entry should be a a stepper state or popup, lets say i select main product, then it gets selected in selction ui and pops up the entry alowing me to dissmis it and repoen from that view ny reclicking the selction, if selecting other it removes the previus from quote and adds the new, conclusion it should be a step in the stepper process so we have easy one click to navigate to main product enrty (instead of two when uisong popup (click on choose_main_product, then click on product entry popup to edit it))
+        
+
+
+DefaultProjectBuilder(Quote):
+    
+    main_product_category_type: str = "main_product" (eg "fence")
+    main_product_entry: ProductEntry
+
+    secondary_product_category_type: str = "secondary_product" (eg "gate")
+    secondary_product_entry: Optional[ProductEntry] = None
+
+    additional_product_category_type: str = "additional_product" (eg "project_addons")
+    additional_product_entries: List[ProductEntry] = []
+
+
+i need you to brainstorm on catalog service requirements, desinge, and functunality
+what is the best way to build this cinda service for web apps that lets them use the cpq in catalog way. it will be used by construction company salesmans that will navigate the client thrue there fence construction project and provide a final price
+a fence construction will have a main fence product, optional secendary gate product, and lastly additional special products like (harddigging, taredown, etc)
+think on baisc navigation requirments like starting new project, going back and changing main product or a variation selection, navigating between projects, maybe a sidebar to see current project summerize (like products init)
+currently we are focusing on python service class that can be used to simulate this hole process, so no api needed just ideas for catalog_service class
+inorder to achive the final catalogService outline we should simulate the webapp flow and api usage.
+generated detailed overview on the webapp, then outline our complete catalog_service class.
+
+
+
+Define what a role is (main, secondary)	ProductRole Enum	Provides type safety and makes code readable.
+Store a product's role in a quote	role field on QuoteProductEntry model	The role is contextual to the quote entry, so the data belongs there.
+Enforce that there's only one main product	set_main_product method in ProjectBuilderService	This is a business rule. The service layer is the gatekeeper for business logic.
+Enforce that a main product must exist	calculate_quote method in ProjectBuilderService	This is a data integrity check before performing a critical action. The service orchestrates this.
+Determine which products can be main products	(Optional) ProductCategory model or a new flag	You can use a product's category (fence, gate) in the service to decide if it's a valid choice for a given role.
+
+class QuoteType(Enum):
+    FENCE = "fence"
+    DEFAULT = "default"
+
+class ProductRole(Enum):
+    MAIN = "main"
+    SECONDARY = "secondary"
+    ADDITIONAL = "additional"
+
+# add ProductRole to QuoteProductEntry model
+
+#user story 
+user opens the fence cpq web app
+it sees a list of recent fence projects (quotes of type QuoteType.FENCE)
+it sees a button to create a new fence project quote
+after clicking the button a new quote is created with the state set to "start", the ui navigates to quote/new id 
+it then sees satefull ui when its on start 
+
+
+clientPaths:
+    / -> showing quotes
+    /quote/new -> excepting name, desciption and creates new quote and navigates to it 
+    /quote/<quote_id> -> showing the quote with the steps to build it (showing stepper with steps selected on current step)
+
+
+clientCokies:
+    quoteing_context: {
+        "quote_id": {
+            "main_product_category": str,  # e.g. "wood", "vinyl"
+        }
+    }
+
+client_context:
+    quote_id: int
+    quote.ui_state: str
+    product_entries: str
+    main_product: ProductEntry (search by role ProductRole.MAIN)
+    main_product_category: str (seted by choose_product_category step)
+    secondary_product: Optional[ProductEntry] = None  # (search by role ProductRole.SECONDARY)
+    additional_product_entries: List[ProductEntry] = []  # (search by role ProductRole.ADDITIONAL)
+    
+client:
+    js client that handles the stateful ui for the fence quote building process
+    and mirrors the QuoteProcessService in the backend and adds specific fence business logic ontop if needed.
+
+
+backend_states: [wf_product_category, wf_pick_main_product, wf_submit_main_product_options, wf_pick_secondary_product, pick_additional_products, wf_calculate_quote]
+frontend_steps: [choose_product_category, choose_main_product, main_product_entry, choose_secondary_product, secondary_product_entry, select_additional_products, additional_product_entrie_<entry_id>, calculated_quote_preview]
+frontend gets the quote from fence_quote_service.get_quote(quote_id)
+if quote.state is "wf_product_category" it shows the choose_product_category step
+when selecting a category it 
+    sets context.product_category to the selected category
+    sets quote.state to "wf_pick_main_product" (only if state == wf_product_category  (to prevent state change if already in other state))
+    navigates to the choose_main_product step
+
+if quote.state is "wf_pick_main_product" it shows the choose_main_product step,
+using get_products_preview(category=context.product_category) to get the products for the selected category
+
+after selecting a main product it
+    adds selected product entry with role ProductRole.MAIN to the quote (will fail if other product with main role already exists with id) if fails ui shows option to delete prevois main product entry
+    sets the quote ui state to "wf_submit_main_product_options" 
+    and navigates to the main_product_entry step
+
+if quote.state is "wf_submit_main_product_options" it shows the main_product_entry step,
+when clicking submit it 
+    updates the main product entry in the quote
+    sets the quote state to "wf_pick_secondary_product"
+
+and so on:
+when user click calculate quote It
+    calls the calculate_quote method in the fence_quote_service
+    sets the quote ui state to "caclulation_preview"
+    navigates to the calculated_quote_preview step (shwin)
+
+in caclultaed_preview step it shows the calculated quote with total price, bill of materials, labor costs, etc. finalize quote button (deactivated if quote.status is finalized allready). download quote pdf button.
+when user clicks finalize quote it
+    sets the quote status to "finalized"
+
+
+
+usr stroy1:
+user gos step by step 
+
+2. user selects category (e.g. "wood"), then on the catgory selection step. 
+3. user selects main product (e.g. "5 ft postmaster fence"), then on the main product selection step. (state: wf_submit_main_product) but it select product step
+4. user submited the product options, then clicks back to category selection step, then selects a different category (e.g. "vinyl"), then selects a different main product (e.g. "6 ft vinyl fence"), should fail and popup "delete and try agine" action
+5. cant go back to category / main product selection steps after selecting main product, without deleting main product (from popup)
+6. selcting secondary product after selected, (also cant go back without deleteing)
+7. can go back to submit options at any time, after clicking submit if state is nat original step state, dont navigate anywhere. 
+8. think throw the process to idenify potential istebility and data loss, abuse.
+
+
+
+so final desition for now is to have a smart frontend client with context about the steps and desired logic specifically for the fence quote building.
+it will guiud user thrue selecting diffrent product requirments, and make sure we dont add multiple main products.
+in backend will have a general QuoteFillService that will allow fluent acsesss for needed operations like creating quotes, adding product entries, calculating quotes, etc.
+while addin:
+    the productROle in QuoteProductEntryBase
+    the quote_type in QuoteBase (QuoteType.FENCE_PROJECT)
+
+so ui can 
+
+QuoteProcessService: (eg: QuoteFillService)
+    # order by witch ui will use 
+    get_quotes(quote_type: QuoteType/n) -> List[Quote]
+    create_quote
+    get_categories_previews(type: str/n)
+    update_quote_ui_state(quote_id: int, state: str) -> None (eg: "pick_product_category", "pick_main_product", etc)
+    get_products_previews(category: str/n) -> List[ProductPreview]
+    add_quote_product_entry: -> MaterializedProductEntry
+    get_quote_product_entry: -> MaterializedProductEntry
+    get_quote_product_entries(quote_id, role: ProductRole/n) -> List[MaterializedProductEntry]
+    delete_quote_product_entry: -> None
+    update_quote_product_entry_option(group_id, variation_option_id, select=True/False)
+    delete_quote_product_entry_option(group_id, variation_option_id)
+    calculate_quote(quote_id: int) -> CalculatedQuote
+    get_calculated_quote(quote_id: int) -> CalculatedQuote
+    set_quote_status(quote_id: int, status: str) -> None (eg: "draft", "calculated", "finalized")
+
+
+conclusion: client holds all the business logic specific for certon type of project (fence project quote) 
+QuoteProcessService is general quoting service that can be used later from multiple diffrent clients that have there own specifictaion for quote requrments (like in our  fence case we have main, secondary, and additional products, but in other cases it can be just one product with variations, or multiple products with no specific roles, etc)
+
+
+
+
+considurations:
+    - pagination support with (offset, limit)
+    - dto for matrilizing stuff.
+    - should we use dynamic steps in stepper navigation or use popups that can be opend from product selection setps. (for addtional product entries for instance that is not a fix amount)
+
+
+final goal: create the QuoteProcessService, QuoteProcessServiceAPI, classes and the FenceQuoteProcessClient js client and specify changes needed for models and other stuff in mycodebase.
+
+# Summary of Plan and Current Status:
+
+# Overall Goal:
+# Develop a CPQ (Configure, Price, Quote) system for fence construction projects.
+# This involves:
+#  - Backend: Python-based service (QuoteProcessService) for managing quote lifecycle, product catalog, and calculations.
+#  - API: FastAPI endpoints for the QuoteProcessService.
+#  - Frontend: Next.js client (FenceQuoteProcessClient) to provide a user-friendly interface for salespersons.
+#  - Database: PostgreSQL, managed via NocoDB for admin and initial data seeding.
+#  - Testing: Unit tests for backend services and E2E tests (JavaScript client hitting the API) to ensure full functionality.
+
+# Current Stage:
+# We are in the process of developing and refining the `QuoteProcessService` in Python.
+# Key functionalities being implemented and tested include:
+#  - Quote creation and retrieval.
+#  - Product and category browsing (previews).
+#  - Adding products (with roles like MAIN, SECONDARY, ADDITIONAL) to a quote.
+#  - Managing product variations and options within a quote entry.
+#  - Calculating the final quote price based on materials, labor, and configuration.
+#  - Managing quote state (e.g., draft, pick_main_product, calculated, finalized).
+
+# Immediate Focus:
+#  - Stabilizing the `QuoteProcessService` by ensuring all its methods work correctly and are covered by unit tests.
+#  - Fixing failing tests in `test_quote_process.py`.
+#  - Iterating on the service design to ensure it's generic enough for future quote types while supporting the specific needs of a "Fence Project" (main, secondary, additional products).
+
+# Key Design Decisions:
+#  - The frontend client will handle the specific business logic and workflow for a "Fence Project Quote" (e.g., guiding the user through steps, enforcing rules like only one main product).
+#  - The backend `QuoteProcessService` will be a more general service providing the core CPQ operations.
+#  - `ProductRole` enum (MAIN, SECONDARY, ADDITIONAL) will be used in `QuoteProductEntry` to define the role of a product within a quote.
+#  - `QuoteType` enum (e.g., FENCE_PROJECT) will be used to differentiate types of quotes.
+#  - Quote UI state will be managed (e.g., `wf_pick_main_product`, `wf_submit_main_product_options`) to guide the frontend.
+
+# Next Major Steps (after stabilizing QuoteProcessService):
+#  1. Develop the FastAPI API endpoints for all `QuoteProcessService` methods.
+#  2. Generate a JavaScript client from the OpenAPI specification of the API.
+#  3. Implement E2E tests using the generated JS client to verify backend functionality through API calls.
+#  4. Develop the Next.js frontend application, incorporating the stateful UI logic for building a fence quote.
+
+# Current Test Status (as of last interaction):
+#  - `test_quote_process.py` has several failing tests related to:
+#    - `test_get_products_previews`: Assertion errors related to mock call counts and SQL query string checks.
+#    - `test_get_quote_product_entry_success`: Assertion error, materialized product entry not having variation groups.
+#    - `test_update_quote_ui_state_success` & `test_set_quote_status_success`: HTTPException 404, quote not found, likely due to mock setup for `session.get`.
+#  - The `NameError: name 'ProductProductCategoryLink' is not defined` was previously fixed by adding the import.
+#  - The assertion for `mock_session.exec.call_count` in `test_get_products_previews` was updated from 1 to 2.
+#  - The SQL query string assertion in `test_get_products_previews` for category fetching was corrected for column order and parameterization.
+
+# The plan is to continue iterating on fixing the tests in `test_quote_process.py` to ensure the `QuoteProcessService` is robust.
