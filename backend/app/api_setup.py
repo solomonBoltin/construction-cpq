@@ -12,7 +12,8 @@ from app.api import (
     variation_option_materials,
     quotes,
     quote_product_entries,
-    quote_product_entry_variations
+    quote_product_entry_variations,
+    quote_process # Added quote_process router
 )
 
 router = APIRouter()
@@ -29,6 +30,7 @@ router.include_router(variation_option_materials.router)
 router.include_router(quotes.router)
 router.include_router(quote_product_entries.router)
 router.include_router(quote_product_entry_variations.router)
+router.include_router(quote_process.router) # Added quote_process router
 
 # Placeholder for other CRUD operations (PUT, DELETE) and more complex endpoints
 # These will be added as development progresses.

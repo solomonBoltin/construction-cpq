@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware # Add this import
 from contextlib import asynccontextmanager
 import logging
 
@@ -15,6 +16,12 @@ logger.setLevel(logging.DEBUG)
 
 # Add a test log message to verify logging
 logger.debug("Logging configuration in main.py is working correctly.")
+
+origins = [
+    "http://localhost:3000",  # Allow your frontend origin
+    "http://localhost:8080",  # Add other origins if needed
+]
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -34,6 +41,14 @@ app = FastAPI(
     description="API for managing construction quotes, products, materials, and variations.",
     version="0.1.0",
     lifespan=lifespan
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods
+    allow_headers=["*"],  # Allows all headers
 )
 
 @app.get("/health", tags=["Health"])
