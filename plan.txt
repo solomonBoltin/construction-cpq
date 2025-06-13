@@ -546,9 +546,42 @@ class CatalogService:
       
     get_quote_client_pdf(quote_id) -> bytes
     
+
+
+
+
+next steps:
+class QuoteType(str, Enum): (to str)
+    """Defines the type of quote, allowing for different business logic flows."""
+    GENERAL = "general"
+    FENCE_PROJECT = "fence_project"
+    DECK_PROJECT = "deck_project"
+
+
+class ProductRole(str, Enum): 
+    """Defines the role of a product within a quote."""
+    DEFAULT = "default"  # Default role for products
+    MAIN = "main"
+    SECONDARY = "secondary"
+    ADDITIONAL = "additional"
+
+
+think if better to have a fk table for 
+  product_role: 
+
+  quote_type:
+
+  quote_ui_state: str
+
+  quote_status: str (draft, finalize)
+
+
+
+
+refrence #frontend_mockup to create a mockup api client in frontend and implment the entire next js app baised on it, while alowing you to switch between api and mockup api in config
     
 
-        
+replace seed.js and adjust seed.py to all data from test test_fence_pm_jpc_raw_6ft
 
     
 

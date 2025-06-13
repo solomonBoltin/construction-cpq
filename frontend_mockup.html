@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fence Project CPQ</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #94a3b8;
+            border-radius: 10px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #64748b;
+        }
+        /* Simple transition for smoother UI changes */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="bg-slate-100">
+
+    <div id="app" class="h-screen w-screen overflow-hidden">
+        <!-- App content will be rendered here by JavaScript -->
+    </div>
+
+    <script type="module">
+        // ===================================================================================
+        // MOCK DATABASE & API SERVICE
+        // This section simulates the backend data and service layer we designed.
+        // ===================================================================================
+
+        const db = {
+            // Hardcoded quote previews (list view)
+            quotes: [
+                { id: 1, name: "Johnson Residence Fence", description: "Backyard privacy fence project.", status: "calculated", quote_type: "fence_project", updated_at: "2025-06-10T14:48:00.000Z" },
+                { id: 2, name: "Miller Commercial Property", description: "Perimeter security fence.", status: "draft", quote_type: "fence_project", updated_at: "2025-06-09T11:20:00.000Z" },
+                { id: 3, name: "Davis Garden Gate", description: "Small gate installation.", status: "draft", quote_type: "fence_project", updated_at: "2025-06-08T09:00:00.000Z" },
+                { id: 4, name: "Smith Pool Enclosure", description: "Safety fence around the pool.", status: "finalized", quote_type: "fence_project", updated_at: "2025-05-20T17:15:00.000Z" },
+                { id: 5, name: "Wilson Ranch Fencing", description: "Large scale agricultural fencing.", status: "draft", quote_type: "fence_project", updated_at: "2025-06-11T10:05:00.000Z" },
+            ],
+            // Hardcoded product categories
+            categories: [
+                { name: "Wood Fence", image_url: "https://placehold.co/400x300/a1887f/ffffff?text=Wood", type: "fence" },
+                { name: "Vinyl Fence", image_url: "https://placehold.co/400x300/f5f5f5/333333?text=Vinyl", type: "fence" },
+                { name: "Chain Link Fence", image_url: "https://placehold.co/400x300/9e9e9e/ffffff?text=Chain+Link", type: "fence" },
+                { name: "Gates", image_url: "https://placehold.co/400x300/795548/ffffff?text=Gates", type: "gate" },
+                { name: "Project Add-ons", image_url: "https://placehold.co/400x300/455a64/ffffff?text=Add-ons", type: "additional" },
+            ],
+            // Hardcoded products
+            products: [
+                // Wood Fences
+                { id: 101, category_name: "Wood Fence", name: "6ft Dog Ear Privacy Fence", description: "Classic and affordable wood privacy fence.", image_url: "https://placehold.co/400x300/c8bbaE/ffffff?text=Dog+Ear" },
+                { id: 102, category_name: "Wood Fence", name: "6ft Board on Board Fence", description: "Provides maximum privacy with overlapping boards.", image_url: "https://placehold.co/400x300/a1887f/ffffff?text=Board+on+Board" },
+                // Vinyl Fences
+                { id: 201, category_name: "Vinyl Fence", name: "6ft White Vinyl Privacy", description: "Durable, low-maintenance privacy solution.", image_url: "https://placehold.co/400x300/e0e0e0/333333?text=White+Vinyl" },
+                { id: 202, category_name: "Vinyl Fence", name: "4ft Picket Vinyl Fence", description: "Charming and traditional picket style.", image_url: "https://placehold.co/400x300/fafafa/333333?text=Picket+Vinyl" },
+                 // Chain Link Fences
+                { id: 301, category_name: "Chain Link Fence", name: "6ft Galvanized Chain Link", description: "Secure and durable for residential or commercial use.", image_url: "https://placehold.co/400x300/bdbdbd/ffffff?text=Galvanized" },
+                // Gates
+                { id: 401, category_name: "Gates", name: "4ft Wide Walk Gate", description: "Standard pedestrian gate, matches fence style.", image_url: "https://placehold.co/400x300/8d6e63/ffffff?text=Walk+Gate" },
+                { id: 402, category_name: "Gates", name: "12ft Wide Drive Gate", description: "Double gate for vehicle access.", image_url: "https://placehold.co/400x300/6d4c41/ffffff?text=Drive+Gate" },
+                // Add-ons
+                { id: 501, category_name: "Project Add-ons", name: "Old Fence Teardown", description: "Removal and disposal of an existing fence (per foot).", image_url: "https://placehold.co/400x300/f44336/ffffff?text=Teardown" },
+                { id: 502, category_name: "Project Add-ons", name: "Hard Digging", description: "Additional labor for rocky or difficult soil (per foot).", image_url: "https://placehold.co/400x300/757575/ffffff?text=Hard+Dig" },
+            ],
+            // Product entry details including variations
+            product_details: {
+                101: { variation_groups: [ { id: 1001, name: "Length (ft)", selection_type: "single_choice", is_required: true, options: [] }, { id: 1002, name: "Wood Stain", selection_type: "single_choice", is_required: false, options: [ { id: 1, name: "None", value_description: "Natural wood", additional_price: 0, is_selected: true }, { id: 2, name: "Cedar", value_description: "Rich red tones", additional_price: 2.50, is_selected: false }, { id: 3, name: "Redwood", value_description: "Deep brown tones", additional_price: 2.75, is_selected: false } ] } ] },
+                102: { variation_groups: [ { id: 1001, name: "Length (ft)", selection_type: "single_choice", is_required: true, options: [] }, { id: 1003, name: "Post Caps", selection_type: "single_choice", is_required: false, options: [ { id: 4, name: "Flat Top", value_description: "Simple and modern", additional_price: 0, is_selected: true }, { id: 5, name: "Pyramid", value_description: "Decorative pointed cap", additional_price: 1.50, is_selected: false } ] } ] },
+                201: { variation_groups: [ { id: 1001, name: "Length (ft)", selection_type: "single_choice", is_required: true, options: [] }, { id: 1004, name: "Color", selection_type: "single_choice", is_required: false, options: [ { id: 6, name: "White", value_description: "Classic white", additional_price: 0, is_selected: true }, { id: 7, name: "Tan", value_description: "Earthy tan color", additional_price: 1.00, is_selected: false }, { id: 8, name: "Gray", value_description: "Modern gray", additional_price: 1.25, is_selected: false } ] } ] },
+                202: { variation_groups: [ { id: 1001, name: "Length (ft)", selection_type: "single_choice", is_required: true, options: [] } ] },
+                301: { variation_groups: [ { id: 1001, name: "Length (ft)", selection_type: "single_choice", is_required: true, options: [] }, { id: 1005, name: "Privacy Slats", selection_type: "single_choice", is_required: false, options: [ { id: 9, name: "None", value_description: "Standard visibility", additional_price: 0, is_selected: true }, { id: 10, name: "Green", value_description: "Adds privacy", additional_price: 3.00, is_selected: false }, { id: 11, name: "Black", value_description: "Adds privacy", additional_price: 3.00, is_selected: false } ] } ] },
+                401: { variation_groups: [ { id: 1006, name: "Hardware", selection_type: "single_choice", is_required: true, options: [ { id: 12, name: "Standard Latch", value_description: "Basic gravity latch", additional_price: 0, is_selected: true }, { id: 13, name: "Keyed Lock", value_description: "Secure locking latch", additional_price: 45.00, is_selected: false } ] } ] },
+                402: { variation_groups: [ { id: 1007, name: "Automation", selection_type: "single_choice", is_required: false, options: [ { id: 14, name: "Manual", value_description: "Opens by hand", additional_price: 0, is_selected: true }, { id: 15, name: "Automatic Opener", value_description: "Includes motor and remote", additional_price: 1200.00, is_selected: false } ] } ] },
+                501: { variation_groups: [ { id: 1008, name: "Length to Remove (ft)", selection_type: "single_choice", is_required: true, options: [] } ] },
+                502: { variation_groups: [ { id: 1009, name: "Length of Hard Dig (ft)", selection_type: "single_choice", is_required: true, options: [] } ] },
+            },
+            // Active quote data will be copied here for modification
+            active_quotes: {}
+        };
+
+        const api = {
+            getQuotes: () => db.quotes,
+            getQuote: (id) => {
+                if (!db.active_quotes[id]) {
+                    const quote_base = db.quotes.find(q => q.id === id);
+                    db.active_quotes[id] = { ...quote_base, product_entries: [] };
+                }
+                return db.active_quotes[id];
+            },
+            createQuote: (name) => {
+                const newId = Math.max(...db.quotes.map(q => q.id)) + 1;
+                const newQuote = {
+                    id: newId,
+                    name: name,
+                    description: "Newly created project.",
+                    status: "draft",
+                    quote_type: "fence_project",
+                    updated_at: new Date().toISOString(),
+                    product_entries: []
+                };
+                db.quotes.push(newQuote);
+                db.active_quotes[newId] = newQuote;
+                return newQuote;
+            },
+            getCategories: (type) => db.categories.filter(c => c.type === type),
+            getProducts: (category_name) => db.products.filter(p => p.category_name === category_name),
+            
+            getMaterializedProductEntry: (entry) => {
+                if (!entry) return null;
+                const product = db.products.find(p => p.id === entry.product_id);
+                let details = JSON.parse(JSON.stringify(db.product_details[entry.product_id] || { variation_groups: [] }));
+
+                // Sync selections
+                details.variation_groups.forEach(group => {
+                    const selectedOption = entry.selected_variations.find(sv => sv.group_id === group.id);
+                    group.options.forEach(opt => {
+                        opt.is_selected = selectedOption ? opt.id === selectedOption.option_id : false;
+                    });
+                });
+                
+                return {
+                    id: entry.id,
+                    quote_id: entry.quote_id,
+                    product_id: entry.product_id,
+                    product_name: product.name,
+                    role: entry.role,
+                    quantity_of_product_units: entry.quantity,
+                    notes: entry.notes,
+                    variation_groups: details.variation_groups
+                };
+            },
+
+            addQuoteProductEntry: (quoteId, productId, role) => {
+                const quote = api.getQuote(quoteId);
+                const product = db.products.find(p => p.id === productId);
+                if (!quote || !product) return null;
+
+                // Simple business rule: remove existing entry with same role if not 'additional'
+                if (role === 'main' || role === 'secondary') {
+                    const existingIndex = quote.product_entries.findIndex(e => e.role === role);
+                    if (existingIndex > -1) {
+                        quote.product_entries.splice(existingIndex, 1);
+                    }
+                }
+
+                const newEntry = {
+                    id: Date.now(), // Use timestamp for unique ID in mock
+                    quote_id: quoteId,
+                    product_id: productId,
+                    role: role,
+                    quantity: 1, // Default quantity
+                    notes: "",
+                    selected_variations: [],
+                };
+                quote.product_entries.push(newEntry);
+                return newEntry;
+            },
+            deleteQuoteProductEntry: (quoteId, entryId) => {
+                const quote = api.getQuote(quoteId);
+                if (!quote) return;
+                quote.product_entries = quote.product_entries.filter(e => e.id !== entryId);
+            },
+            updateQuoteProductEntry: (quoteId, entryId, { quantity, notes }) => {
+                const quote = api.getQuote(quoteId);
+                const entry = quote.product_entries.find(e => e.id === entryId);
+                if (entry) {
+                    if (quantity !== undefined) entry.quantity = quantity;
+                    if (notes !== undefined) entry.notes = notes;
+                }
+            },
+            setQuoteProductVariationOption: (quoteId, entryId, groupId, optionId) => {
+                const quote = api.getQuote(quoteId);
+                const entry = quote.product_entries.find(e => e.id === entryId);
+                if (!entry) return;
+
+                let groupSelection = entry.selected_variations.find(sv => sv.group_id === groupId);
+                if (groupSelection) {
+                    groupSelection.option_id = optionId;
+                } else {
+                    entry.selected_variations.push({ group_id: groupId, option_id: optionId });
+                }
+            }
+        };
+
+        // ===================================================================================
+        // APPLICATION STATE & RENDERER
+        // This section manages the UI state and re-renders the DOM when state changes.
+        // ===================================================================================
+
+        const appState = {
+            currentView: 'quote_list', // 'quote_list' or 'catalog'
+            activeQuoteId: null,
+            activeStep: 'choose_category', // The key of the current stepper step
+            // Context for the catalog flow
+            catalogContext: {
+                selectedCategoryName: null,
+                activeProductEntryId: null, // ID of entry being configured
+            }
+        };
+
+        const appRoot = document.getElementById('app');
+
+        /** Main render function that orchestrates the entire UI update */
+        function render() {
+            // Store scroll position to restore after render
+            const scrollY = window.scrollY;
+
+            switch (appState.currentView) {
+                case 'quote_list':
+                    appRoot.innerHTML = renderQuoteList();
+                    break;
+                case 'catalog':
+                    appRoot.innerHTML = renderCatalogView();
+                    break;
+                default:
+                    appRoot.innerHTML = `<div class="p-8 text-red-500">Error: Unknown view state.</div>`;
+            }
+            // Restore scroll position
+            window.scrollTo(0, scrollY);
+        }
+
+        // --- View Renderers ---
+
+        function renderQuoteList() {
+            const quotes = api.getQuotes();
+            return `
+                <div class="min-h-screen bg-slate-100 p-4 sm:p-6 lg:p-8 fade-in">
+                    <div class="max-w-7xl mx-auto">
+                        <div class="flex justify-between items-center mb-6">
+                            <h1 class="text-3xl font-bold text-slate-800">Fence Projects</h1>
+                            <button data-action="create-quote" class="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M12 5v14"/></svg>
+                                New Project
+                            </button>
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                            ${quotes.map(renderQuoteCard).join('')}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderQuoteCard(quote) {
+            const statusStyles = {
+                draft: "bg-yellow-100 text-yellow-800",
+                calculated: "bg-blue-100 text-blue-800",
+                finalized: "bg-green-100 text-green-800",
+            };
+            return `
+                <div data-action="select-quote" data-quote-id="${quote.id}" class="bg-white rounded-xl shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 cursor-pointer overflow-hidden">
+                    <div class="p-6">
+                        <div class="flex justify-between items-start">
+                             <h2 class="text-xl font-bold text-slate-900 mb-2">${quote.name}</h2>
+                             <span class="text-xs font-semibold px-2 py-1 rounded-full ${statusStyles[quote.status] || ''}">${quote.status}</span>
+                        </div>
+                        <p class="text-slate-600 mb-4 h-12">${quote.description}</p>
+                        <div class="text-xs text-slate-400">Last updated: ${new Date(quote.updated_at).toLocaleDateString()}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderCatalogView() {
+            const quote = api.getQuote(appState.activeQuoteId);
+            if (!quote) return `<div class="p-8 text-red-500">Error: Quote not found.</div>`;
+
+            return `
+                <div class="flex h-screen bg-white">
+                    <!-- Sidebar -->
+                    <aside class="w-80 bg-slate-50 border-r border-slate-200 flex flex-col h-full">
+                        ${renderSidebar(quote)}
+                    </aside>
+
+                    <!-- Main Content -->
+                    <main class="flex-1 flex flex-col overflow-hidden">
+                        <header class="p-4 border-b border-slate-200 bg-white z-10">
+                            <button data-action="back-to-list" class="text-sm text-slate-600 hover:text-blue-600 flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"/></svg>
+                                Back to All Projects
+                            </button>
+                        </header>
+                        
+                        <!-- Stepper -->
+                        <div class="p-6 border-b border-slate-200">
+                             ${renderStepper()}
+                        </div>
+
+                        <!-- Step Content -->
+                        <div class="flex-1 overflow-y-auto p-6 bg-slate-100 fade-in">
+                            ${renderStepContent(quote)}
+                        </div>
+                    </main>
+                </div>
+            `;
+        }
+
+        function renderSidebar(quote) {
+            const mainProduct = quote.product_entries.find(e => e.role === 'main');
+            const secondaryProduct = quote.product_entries.find(e => e.role === 'secondary');
+            const additionalProducts = quote.product_entries.filter(e => e.role === 'additional');
+            
+            const getProductName = (entry) => db.products.find(p => p.id === entry.product_id)?.name || 'Unknown Product';
+            
+            return `
+                 <div class="p-6 border-b border-slate-200">
+                    <h2 class="text-lg font-bold text-slate-800">${quote.name}</h2>
+                    <p class="text-sm text-slate-500">${quote.description}</p>
+                 </div>
+                 <div class="flex-1 p-6 overflow-y-auto">
+                    <h3 class="font-semibold text-slate-700 mb-4">Project Items</h3>
+                    <ul class="space-y-4 text-sm">
+                        ${mainProduct ? `
+                            <li>
+                                <span class="font-semibold text-slate-600 block">Main Product</span>
+                                <span class="text-slate-500">${getProductName(mainProduct)}</span>
+                            </li>
+                        ` : `
+                            <li>
+                                <span class="font-semibold text-slate-400 block">Main Product</span>
+                                <span class="text-slate-400 italic">Not selected</span>
+                            </li>
+                        `}
+                        ${secondaryProduct ? `
+                             <li>
+                                <span class="font-semibold text-slate-600 block">Secondary Product</span>
+                                <span class="text-slate-500">${getProductName(secondaryProduct)}</span>
+                            </li>
+                        ` : `
+                             <li>
+                                <span class="font-semibold text-slate-400 block">Secondary Product</span>
+                                <span class="text-slate-400 italic">Not selected</span>
+                            </li>
+                        `}
+                        ${additionalProducts.length > 0 ? `
+                             <li>
+                                <span class="font-semibold text-slate-600 block">Additional Items</span>
+                                <ul class="list-disc list-inside mt-1 text-slate-500">
+                                    ${additionalProducts.map(p => `<li>${getProductName(p)}</li>`).join('')}
+                                </ul>
+                            </li>
+                        `: ''}
+                    </ul>
+                 </div>
+                 <div class="p-6 border-t border-slate-200">
+                     <button data-action="go-to-step" data-step="review" class="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2">
+                        Review & Calculate
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 18 6-6-6-6"/></svg>
+                    </button>
+                 </div>
+            `;
+        }
+
+        function renderStepper() {
+            const steps = [
+                { key: 'choose_category', label: 'Category' },
+                { key: 'choose_main_product', label: 'Main Product' },
+                { key: 'configure_main', label: 'Configure Main' },
+                { key: 'choose_secondary_product', label: 'Secondary Product' },
+                { key: 'configure_secondary', label: 'Configure Secondary' },
+                { key: 'select_additional', label: 'Add-ons' },
+                { key: 'review', label: 'Review' },
+            ];
+
+            const currentIndex = steps.findIndex(s => s.key === appState.activeStep);
+
+            return `
+                <nav>
+                    <ol class="flex items-center space-x-4 text-sm font-medium text-slate-500">
+                        ${steps.map((step, index) => {
+                            const isCompleted = index < currentIndex;
+                            const isCurrent = index === currentIndex;
+                            
+                            let classes = 'cursor-pointer';
+                            let icon;
+
+                            if (isCurrent) {
+                                classes += ' text-blue-600 font-bold';
+                                icon = `<span class="flex h-6 w-6 items-center justify-center rounded-full bg-blue-600 text-white mr-2 text-xs">${index + 1}</span>`;
+                            } else if (isCompleted) {
+                                classes += ' text-green-600 hover:text-green-800';
+                                icon = `<span class="flex h-6 w-6 items-center justify-center rounded-full bg-green-500 mr-2">
+                                            <svg class="h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" /></svg>
+                                        </span>`;
+                            } else {
+                                classes += ' text-slate-400';
+                                icon = `<span class="flex h-6 w-6 items-center justify-center rounded-full border border-slate-300 bg-white text-slate-400 mr-2 text-xs">${index + 1}</span>`;
+                            }
+
+                            return `
+                                <li class="flex items-center ${index > 0 ? 'pl-4' : ''} relative">
+                                    ${index > 0 ? `<div class="absolute -left-2 top-1/2 h-0.5 w-6 bg-slate-200"></div>` : ''}
+                                    <button data-action="go-to-step" data-step="${step.key}" class="flex items-center ${classes}">
+                                        ${icon}
+                                        ${step.label}
+                                    </button>
+                                </li>`;
+                        }).join('')}
+                    </ol>
+                </nav>
+            `;
+        }
+
+        function renderStepContent(quote) {
+            switch (appState.activeStep) {
+                case 'choose_category':
+                    return renderCategorySelector();
+                case 'choose_main_product':
+                case 'choose_secondary_product':
+                    return renderProductSelector(quote);
+                case 'configure_main':
+                case 'configure_secondary':
+                     return renderProductEntryConfigurator(quote);
+                case 'select_additional':
+                    return renderAdditionalProductSelector(quote);
+                case 'review':
+                    return renderReviewView(quote);
+                default:
+                    return `<div class="text-slate-500">Select a step to begin.</div>`;
+            }
+        }
+        
+        function renderCategorySelector() {
+            const categories = api.getCategories('fence');
+            return `
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-1">Choose a Fence Category</h2>
+                    <p class="text-slate-600 mb-6">Select the primary type of fence for this project.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                        ${categories.map(cat => `
+                            <div data-action="select-category" data-category-name="${cat.name}" class="bg-white rounded-xl shadow-md hover:shadow-xl hover:border-blue-500 border-2 border-transparent transition-all cursor-pointer overflow-hidden">
+                                <img src="${cat.image_url}" alt="${cat.name}" class="w-full h-48 object-cover">
+                                <div class="p-4">
+                                    <h3 class="font-bold text-lg text-slate-800">${cat.name}</h3>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        function renderProductSelector(quote) {
+            const isMain = appState.activeStep === 'choose_main_product';
+            const categoryName = isMain ? appState.catalogContext.selectedCategoryName : 'Gates';
+            
+            if (!categoryName) {
+                return `
+                    <div class="text-center p-8 bg-white rounded-lg shadow">
+                         <h3 class="font-bold text-lg text-slate-700">Please select a category first.</h3>
+                         <button data-action="go-to-step" data-step="choose_category" class="mt-4 bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors">
+                            Go to Category Selection
+                         </button>
+                    </div>`;
+            }
+            
+            const products = api.getProducts(categoryName);
+            const role = isMain ? 'main' : 'secondary';
+            const currentEntry = quote.product_entries.find(e => e.role === role);
+
+            return `
+                 <div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-1">Choose a ${isMain ? 'Main Fence' : 'Gate'}</h2>
+                    <p class="text-slate-600 mb-6">Showing products from the "${categoryName}" category.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                         ${products.map(p => {
+                            const isSelected = currentEntry?.product_id === p.id;
+                            return `
+                                <div data-action="select-product" data-product-id="${p.id}" data-role="${role}" class="bg-white rounded-xl shadow-md hover:shadow-xl ${isSelected ? 'border-blue-500' : 'border-transparent'} border-2 transition-all cursor-pointer overflow-hidden">
+                                    <img src="${p.image_url}" alt="${p.name}" class="w-full h-48 object-cover">
+                                    <div class="p-4">
+                                        <h3 class="font-bold text-lg text-slate-800">${p.name}</h3>
+                                        <p class="text-sm text-slate-500 h-10">${p.description}</p>
+                                    </div>
+                                </div>
+                            `;
+                         }).join('')}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderProductEntryConfigurator(quote) {
+            const entry = quote.product_entries.find(e => e.id === appState.catalogContext.activeProductEntryId);
+            if (!entry) {
+                 return `<div class="text-center p-8 bg-white rounded-lg shadow">
+                         <h3 class="font-bold text-lg text-slate-700">No product selected for configuration.</h3>
+                         <p class="text-sm text-slate-500">Please select a product first.</p>
+                    </div>`;
+            }
+
+            const materializedEntry = api.getMaterializedProductEntry(entry);
+            const isMain = entry.role === 'main';
+
+            return `
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-1">Configure: ${materializedEntry.product_name}</h2>
+                    <p class="text-slate-600 mb-6">Set the quantity and options for this item.</p>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+                             <div>
+                                <label for="quantity-${entry.id}" class="block text-sm font-medium text-slate-700 mb-1">Quantity ${entry.role === 'main' ? '(ft)' : '(items)'}</label>
+                                <input type="number" id="quantity-${entry.id}" data-action="update-quantity" data-entry-id="${entry.id}" value="${materializedEntry.quantity_of_product_units}" class="w-full p-2 border border-slate-300 rounded-md shadow-sm focus:ring-blue-500 focus:border-blue-500">
+                            </div>
+
+                            ${materializedEntry.variation_groups.map(group => `
+                                <div>
+                                    <h4 class="text-sm font-medium text-slate-700 mb-2">${group.name} ${group.is_required ? '<span class="text-red-500">*</span>' : ''}</h4>
+                                    <div class="flex flex-wrap gap-2">
+                                        ${group.options.map(opt => `
+                                            <button data-action="select-variation" data-entry-id="${entry.id}" data-group-id="${group.id}" data-option-id="${opt.id}" class="px-4 py-2 text-sm font-medium rounded-md border transition-colors ${opt.is_selected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}">
+                                                ${opt.name}
+                                            </button>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                            `).join('')}
+                        </div>
+
+                         <div class="mt-8 border-t pt-6 flex justify-end">
+                            <button data-action="go-to-step" data-step="${isMain ? 'choose_secondary_product' : 'select_additional'}" class="bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-blue-700 transition-colors">Next Step</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderAdditionalProductSelector(quote) {
+            const products = api.getProducts('Project Add-ons');
+            return `
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-1">Select Additional Services</h2>
+                    <p class="text-slate-600 mb-6">Choose any extra services needed for this project.</p>
+                    <div class="space-y-4">
+                        ${products.map(p => {
+                             const entry = quote.product_entries.find(e => e.product_id === p.id);
+                             const isSelected = !!entry;
+                             return `
+                                <div class="bg-white p-4 rounded-lg shadow-md flex items-center justify-between">
+                                    <div>
+                                        <h3 class="font-bold text-slate-800">${p.name}</h3>
+                                        <p class="text-sm text-slate-500">${p.description}</p>
+                                    </div>
+                                    <div class="flex items-center gap-4">
+                                        ${isSelected ? `
+                                            <input type="number" data-action="update-quantity" data-entry-id="${entry.id}" value="${entry.quantity}" class="w-24 p-2 border border-slate-300 rounded-md shadow-sm text-sm">
+                                            <button data-action="toggle-additional" data-product-id="${p.id}" class="text-red-500 hover:text-red-700">
+                                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+                                            </button>
+                                        ` : `
+                                            <button data-action="toggle-additional" data-product-id="${p.id}" class="bg-green-100 text-green-700 font-semibold py-2 px-4 rounded-lg hover:bg-green-200 transition-colors">Add</button>
+                                        `}
+                                    </div>
+                                </div>`;
+                         }).join('')}
+                    </div>
+                     <div class="mt-8 border-t pt-6 flex justify-end">
+                        <button data-action="go-to-step" data-step="review" class="bg-blue-600 text-white font-semibold py-2 px-5 rounded-lg shadow-md hover:bg-blue-700 transition-colors">Next: Review Quote</button>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderReviewView(quote) {
+            const material_cost = quote.product_entries.length * 750.25;
+            const labor_cost = quote.product_entries.length * 350.00;
+            const subtotal = material_cost + labor_cost;
+            const tax = subtotal * 0.08;
+            const final_price = subtotal + tax;
+
+            return `
+                 <div>
+                    <h2 class="text-2xl font-bold text-slate-800 mb-1">Quote Review</h2>
+                    <p class="text-slate-600 mb-6">Here is a summary of the estimated project costs. This is for demonstration purposes.</p>
+                    <div class="bg-white p-8 rounded-lg shadow-md max-w-2xl mx-auto">
+                        <h3 class="text-xl font-bold text-slate-800 mb-6 text-center">${quote.name} - Estimate</h3>
+                        <div class="space-y-4">
+                            ${quote.product_entries.map(e => {
+                                const p = db.products.find(prod => prod.id === e.product_id);
+                                return `<div class="flex justify-between items-center text-slate-700"><span>${e.quantity} x ${p.name}</span><span>...</span></div>`;
+                            }).join('')}
+                        </div>
+                        <hr class="my-6">
+                        <div class="space-y-3">
+                            <div class="flex justify-between text-slate-600"><span>Total Material Cost</span><span>$${material_cost.toFixed(2)}</span></div>
+                            <div class="flex justify-between text-slate-600"><span>Total Labor Cost</span><span>$${labor_cost.toFixed(2)}</span></div>
+                            <div class="flex justify-between font-semibold text-slate-800"><span>Subtotal</span><span>$${subtotal.toFixed(2)}</span></div>
+                            <div class="flex justify-between text-slate-600"><span>Tax (8%)</span><span>$${tax.toFixed(2)}</span></div>
+                        </div>
+                        <hr class="my-6">
+                        <div class="flex justify-between font-bold text-2xl text-slate-900">
+                            <span>Final Price</span>
+                            <span>$${final_price.toFixed(2)}</span>
+                        </div>
+                        <div class="mt-8 text-center">
+                           <button class="bg-green-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-green-700 transition-colors">Finalize Project</button>
+                        </div>
+                    </div>
+                 </div>
+            `;
+        }
+
+
+        // --- Event Handlers & Initializer ---
+
+        function handleAppClick(e) {
+            const target = e.target.closest('[data-action]');
+            if (!target) return;
+
+            const { action, quoteId, categoryName, productId, role, step, entryId, groupId, optionId } = target.dataset;
+
+            switch (action) {
+                case 'create-quote': {
+                    const name = prompt("Enter a name for the new project:", "New Fence Project");
+                    if (name) {
+                        const newQuote = api.createQuote(name);
+                        appState.activeQuoteId = newQuote.id;
+                        appState.currentView = 'catalog';
+                        appState.activeStep = 'choose_category';
+                    }
+                    break;
+                }
+                case 'select-quote':
+                    appState.activeQuoteId = parseInt(quoteId);
+                    appState.currentView = 'catalog';
+                    appState.activeStep = 'choose_category';
+                    break;
+                case 'back-to-list':
+                    appState.currentView = 'quote_list';
+                    appState.activeQuoteId = null;
+                    break;
+                case 'select-category':
+                    appState.catalogContext.selectedCategoryName = categoryName;
+                    appState.activeStep = 'choose_main_product';
+                    break;
+                case 'go-to-step':
+                    appState.activeStep = step;
+                    break;
+                case 'select-product': {
+                    const newEntry = api.addQuoteProductEntry(appState.activeQuoteId, parseInt(productId), role);
+                    appState.catalogContext.activeProductEntryId = newEntry.id;
+                    appState.activeStep = role === 'main' ? 'configure_main' : 'configure_secondary';
+                    break;
+                }
+                 case 'toggle-additional': {
+                    const quote = api.getQuote(appState.activeQuoteId);
+                    const existing = quote.product_entries.find(e => e.product_id === parseInt(productId));
+                    if(existing) {
+                        api.deleteQuoteProductEntry(appState.activeQuoteId, existing.id);
+                    } else {
+                        api.addQuoteProductEntry(appState.activeQuoteId, parseInt(productId), 'additional');
+                    }
+                    break;
+                }
+                case 'select-variation':
+                    api.setQuoteProductVariationOption(appState.activeQuoteId, parseInt(entryId), parseInt(groupId), parseInt(optionId));
+                    break;
+            }
+            render();
+        }
+
+        function handleAppInput(e){
+            const target = e.target.closest('[data-action]');
+            if (!target || target.dataset.action !== 'update-quantity') return;
+            const { entryId } = target.dataset;
+            
+            // Debounce or handle on blur for performance, but for mock, immediate update is fine
+            const quantity = parseFloat(e.target.value) || 0;
+            api.updateQuoteProductEntry(appState.activeQuoteId, parseInt(entryId), { quantity });
+
+            // Re-render sidebar to show changes if needed (not implemented for simplicity)
+        }
+
+        function init() {
+            appRoot.addEventListener('click', handleAppClick);
+            appRoot.addEventListener('input', handleAppInput); // For quantity changes
+            render();
+        }
+
+        init();
+
+    </script>
+</body>
+</html>

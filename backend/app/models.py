@@ -3,12 +3,12 @@ from enum import Enum # Add timezone import
 from pydantic import field_serializer, BaseModel as PydanticBaseModel, ConfigDict
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
-import json 
+import json
 from typing import List, Optional, Any, Type # Added Any
 from decimal import Decimal
 from sqlmodel import DDL, Computed, Field, SQLModel, Relationship
 from sqlmodel.main import SQLModelMetaclass
-from sqlalchemy import Column, Float, ForeignKey, Integer, String, Boolean, Text, func, UniqueConstraint, event # Add func, UniqueConstraint, and event imports
+from sqlalchemy import Column, Enum as SAEnum, Float, ForeignKey, Integer, String, Boolean, Text, func, UniqueConstraint, event # Add func, UniqueConstraint, SAEnum and event imports
 
 
 
@@ -343,7 +343,14 @@ class QuoteBase(SQLModel):
     description: Optional[str] = Field(default=None)
     quote_config_id: int = Field(foreign_key="quote_config.id")
     status: str = Field(default="draft", max_length=20, index=True) # Added index
-    quote_type: QuoteType = Field(default=QuoteType.GENERAL, sa_column_kwargs={"server_default": QuoteType.GENERAL}) # Default to GENERAL type
+    quote_type: Optional[QuoteType] = Field(
+        default=QuoteType.GENERAL,
+        sa_column=Column(
+            SAEnum(QuoteType),
+            nullable=True, 
+            default=QuoteType.GENERAL, # Default to GENERAL
+            ) # Use SQLAlchemy Enum for better DB support
+        )
     ui_state: Optional[str] = Field(default=None, max_length=100, index=True) # New field for UI state tracking
     
     created_at: datetime = Field(
@@ -371,7 +378,14 @@ class QuoteProductEntryBase(SQLModel):
     product_id: int = Field(foreign_key="product.id") # ON DELETE RESTRICT is default if not specified for FK
     quantity_of_product_units: Decimal = Field(max_digits=10, decimal_places=2)
     notes: Optional[str] = Field(default=None)
-    role: ProductRole = Field(default=ProductRole.DEFAULT, sa_column_kwargs={"server_default": ProductRole.DEFAULT}) # Default to MAIN role
+    role: ProductRole = Field(
+        default=ProductRole.DEFAULT, 
+        sa_column=Column(
+            SAEnum(ProductRole), 
+            nullable=False, 
+            server_default=ProductRole.DEFAULT
+        )
+    ) 
 
 class QuoteProductEntry(QuoteProductEntryBase, table=True):
     __tablename__ = "quote_product_entry"
