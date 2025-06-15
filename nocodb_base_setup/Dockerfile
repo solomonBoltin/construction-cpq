@@ -9,5 +9,6 @@ COPY package*.json ./
 RUN npm install
 
 COPY setup_auto.js .
+COPY column_configurator.js .
 
 CMD ["node", "setup_auto.js"]

@@ -7,10 +7,9 @@ import json
 from typing import List, Optional, Any, Type # Added Any
 from decimal import Decimal
 from sqlmodel import DDL, Computed, Field, SQLModel, Relationship
-from sqlmodel.main import SQLModelMetaclass
 from sqlalchemy import Column, Enum as SAEnum, Float, ForeignKey, Integer, String, Boolean, Text, func, UniqueConstraint, event # Add func, UniqueConstraint, SAEnum and event imports
 
-
+#todo: check about using sql model enum type and sa_enum if exists and matters
 
 
 # Custom SQLAlchemy TypeDecorator for lists of Pydantic models
@@ -115,13 +114,20 @@ class QuoteType(str, Enum):
     FENCE_PROJECT = "fence_project"
     DECK_PROJECT = "deck_project"
 
+class QuoteStatus(str, Enum):
+    """Defines the status of a quote."""
+    DRAFT = "DRAFT"  # Initial state, not yet finalized
+    FINAL = "FINAL"  # Finalized and ready for review
+    SENT = "SENT"    # Sent to customer
+    
+
 class ProductRole(str, Enum):
     """Defines the role of a product within a quote."""
-    DEFAULT = "default"  # Default role for products
-    MAIN = "main"
-    SECONDARY = "secondary"
-    ADDITIONAL = "additional"
-
+    DEFAULT = "DEFAULT"  # Default role for products
+    MAIN = "MAIN"
+    SECONDARY = "SECONDARY"
+    ADDITIONAL = "ADDITIONAL"  
+# todo: maybe should be moved to frontend and just set as strings in the backend (not sure yet)
 
 
 # SQLModel Table Models
@@ -333,23 +339,27 @@ class QuoteConfigBase(SQLModel):
 
 class QuoteConfig(QuoteConfigBase, table=True):
     __tablename__ = "quote_config"
-    id: Optional[int] = Field(default=None, primary_key=True)
     quotes: List["Quote"] = Relationship(back_populates="quote_config")
 
 
 class QuoteBase(SQLModel):
-    id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
+    id: Optional[int] = Field(default=None, primary_key=True) 
     name: Optional[str] = Field(default=None, max_length=255)
     description: Optional[str] = Field(default=None)
     quote_config_id: int = Field(foreign_key="quote_config.id")
-    status: str = Field(default="draft", max_length=20, index=True) # Added index
-    quote_type: Optional[QuoteType] = Field(
+    status: str = Field(
+            default=QuoteStatus.DRAFT, 
+            sa_column=Column(
+                SAEnum(QuoteStatus), 
+                default=QuoteStatus.DRAFT,
+            )
+        )
+    quote_type: QuoteType = Field(
         default=QuoteType.GENERAL,
         sa_column=Column(
             SAEnum(QuoteType),
-            nullable=True, 
-            default=QuoteType.GENERAL, # Default to GENERAL
-            ) # Use SQLAlchemy Enum for better DB support
+            default=QuoteType.GENERAL,
+            )
         )
     ui_state: Optional[str] = Field(default=None, max_length=100, index=True) # New field for UI state tracking
     
@@ -382,8 +392,7 @@ class QuoteProductEntryBase(SQLModel):
         default=ProductRole.DEFAULT, 
         sa_column=Column(
             SAEnum(ProductRole), 
-            nullable=False, 
-            server_default=ProductRole.DEFAULT
+            default=ProductRole.DEFAULT,
         )
     ) 
 

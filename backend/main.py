@@ -1,12 +1,14 @@
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware # Add this import
+from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
+from sqlmodel import Session
 
-from app.database import create_db_and_tables
+from app.database import create_db_and_tables, engine 
 # Import your API routers here when they are created, e.g.:
-from app.api_setup import router as api_router # Import the router from api.py
-from app.config import settings  # Import settings for configuration
+from app.api_setup import router as api_router
+from app.config import settings
+from seeders.seeder import run_all_seeders, should_seed
 
 
 # Set up logging configuration
@@ -29,9 +31,18 @@ async def lifespan(app: FastAPI):
     print("Creating database and tables...")
     create_db_and_tables()
     print("Database and tables created.")
-    # if want to seed here, should make seed seed only if not exists
-    # from seed import main
-    # main()  # Call the seed function to populate initial data
+
+    if should_seed():
+        print("Seeding database...")
+        with Session(engine) as session:
+            run_all_seeders(session)
+            # No explicit commit here, as individual seeders commit after each type
+            # or _get_or_create handles commit/rollback.
+            # A final commit in seed.py's main is for script-based execution.
+        print("Database seeding completed.")
+    else:
+        print("Skipping database seeding based on environment variables.")
+    
     yield
     # Code to run on shutdown (if any)
     print("Application shutting down...")

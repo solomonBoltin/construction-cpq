@@ -1,5 +1,6 @@
 import fs from 'fs/promises'; // Added for file system operations
 import dotenv from 'dotenv';
+import { setupColumnTypeToSingleSelect } from './column_configurator.js';
 
 
 
@@ -26,7 +27,7 @@ const CONFIG = {
         baseUrl: process.env.NOCODB_BASE_URL,
         credentials: {
             email: process.env.NOCODB_EMAIL,
-            password: process.env.NOCODB_PASSWORD, 
+            password: process.env.NOCODB_PASSWORD,
         }
     },
 
@@ -43,7 +44,7 @@ const CONFIG = {
         title: process.env.BASE_TITLE || 'Automated App Base (Postgres)',
         sourceAlias: process.env.SOURCE_TITLE || 'AutomatedProductionPostgres'
     },
-    
+
     // File paths
     generated: {
         swaggerJsonPath: process.env.SWAGGER_JSON_PATH || './generated/swagger.json',
@@ -193,7 +194,7 @@ async function createApiToken(jwtToken) {
 async function saveTokenToFile(token) {
     console.log(`\n💾 Saving API token to file...`);
     const filePath = CONFIG.generated.tokenPath;
-    
+
     try {
         // Make sure the directory exists
         const directory = filePath.substring(0, filePath.lastIndexOf('/'));
@@ -205,7 +206,7 @@ async function saveTokenToFile(token) {
                 throw error;
             }
         }
-        
+
         await fs.writeFile(filePath, token);
         console.log(`✓ API token saved successfully to ${filePath}`);
     } catch (error) {
@@ -368,7 +369,8 @@ async function saveSwaggerJson(baseId, apiToken) {
             const errorMessage = `Swagger API Error ${response.status}: ${errorData.message || response.statusText}`;
             console.error(`✗ ${errorMessage}`);
             throw new Error(errorMessage);
-        }        const swaggerJson = await response.json();
+        } 
+        const swaggerJson = await response.json();
         const filePath = CONFIG.generated.swaggerJsonPath;
         await fs.writeFile(filePath, JSON.stringify(swaggerJson, null, 2));
         console.log(`✓ Swagger JSON saved successfully to ${filePath}`);
@@ -388,18 +390,18 @@ async function saveSwaggerJson(baseId, apiToken) {
  */
 async function generateApiClient(swaggerFilePath) {
     console.log(`\\n🔧 Generating API client from Swagger JSON`);
-    
+
     try {
         // Set up the path for the generated client
         const outputDir = CONFIG.generated.apiClientOutputDir;
-        
+
         // Import the openapi generator dynamically
         const { exec } = await import('child_process');
         const util = await import('util');
         const execPromise = util.promisify(exec);
-        
+
         console.log(`Generating API client at: ${outputDir}`);
-        
+
         // Delete directory if it exists
         try {
             await fs.rm(outputDir, { recursive: true, force: true });
@@ -412,14 +414,14 @@ async function generateApiClient(swaggerFilePath) {
 
         // Execute the openapi-generator-cli command
         const command = `npx openapi-generator-cli generate -i ${swaggerFilePath} -g javascript -o ${outputDir} --additional-properties=usePromises=true,projectName=${CONFIG.generated.projectName}`;
-        
+
         console.log(`Executing command: ${command}`);
         const { stdout, stderr } = await execPromise(command);
-        
+
         if (stderr && !stderr.includes('WARNING')) {
             console.error(`⚠️ OpenAPI Generator CLI warnings/errors: ${stderr}`);
         }
-        
+
         // check if the output directory was created and has files
         const files = await fs.readdir(outputDir);
         if (files.length === 0) {
@@ -427,7 +429,7 @@ async function generateApiClient(swaggerFilePath) {
         }
 
         console.log(`✓ API client generated successfully at ${outputDir}`);
-        
+
     } catch (error) {
         console.error(`✗ Error generating API client: ${error.message}`);
         console.error(error.stack);
@@ -449,7 +451,7 @@ async function runAutomation() {
     console.log(`  NocoDB URL: ${CONFIG.nocodb.baseUrl}`);
     console.log(`  PostgreSQL Host: ${CONFIG.postgres.host}:${CONFIG.postgres.port}`);
     console.log(`  Database: ${CONFIG.postgres.database}`);
-    console.log(`  Base Title: ${CONFIG.base.title}\n`);    try {
+    console.log(`  Base Title: ${CONFIG.base.title}\n`); try {
         // Step 1: Authentication
         const jwtToken = await signIn(
             CONFIG.nocodb.credentials.email,
@@ -457,7 +459,7 @@ async function runAutomation() {
         );
 
         const apiToken = await createApiToken(jwtToken);
-        
+
         // Save the token to file for other services to use
         await saveTokenToFile(apiToken);
 
@@ -504,14 +506,16 @@ async function runAutomation() {
             // Step 4: Configure Base to Use PostgreSQL Source
             await configureBaseSource(base.id, pgSource, apiToken);
             console.log(`\\n🎉 New base and source configured successfully!`);
-        }        // Step 5: Save Swagger JSON
+        }
+
+        // Step 5: Save Swagger JSON
         // Ensure base.id and apiToken are available
         if (base && base.id && apiToken) {
             // sleep for a short duration to ensure the base is ready
             console.log(`\n⏳ Waiting for base to be ready before saving Swagger JSON...`);
             await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds
             await saveSwaggerJson(base.id, apiToken);
-            
+
             // Step 6: Generate API client from the Swagger JSON
             try {
                 await generateApiClient(CONFIG.generated.swaggerJsonPath);
@@ -522,6 +526,51 @@ async function runAutomation() {
         } else {
             console.warn('Skipping Swagger JSON save and API client generation due to missing base ID or API token.');
         }
+
+        
+        // Step 7: Configure specific column types
+        // Ensure baseId is available. If you create the base, you get it.
+        // If you use an existing base, you might need to fetch its ID or have it in CONFIG.
+        const baseId = base.id;
+        if (baseId) {
+
+
+            // Setting up the QuoteType column in the Quote table
+            const quoteTable = 'quote'; // Actual table name in your DB
+            const quoteTypeColumn = 'quote_type'; // Actual column name
+            const quoteTypeEnumValues = ['GENERAL', 'FENCE_PROJECT', 'DECK_PROJECT']; // From your models.py QuoteType enum
+
+            await setupColumnTypeToSingleSelect(
+                CONFIG.nocodb.baseUrl,
+                apiToken,
+                baseId,
+                quoteTable,
+                quoteTypeColumn,
+                quoteTypeEnumValues
+            );
+
+
+            // Setting up the QuoteStatus column in the Quote table 
+            const quoteStatusColumn = 'status'; // Actual column name in your DB
+            const quoteStatusEnumValues = ['DRAFT', 'FINAL', 'SENT']; // Values from models.py QuoteStatus enum
+            await setupColumnTypeToSingleSelect(
+                CONFIG.nocodb.baseUrl,
+                apiToken,
+                baseId,
+                quoteTable,
+                quoteStatusColumn,
+                quoteStatusEnumValues
+            );
+            
+
+
+
+
+
+        } else {
+            console.warn('\n⚠️ Base ID not available. Skipping column type configuration.');
+        }
+
 
         // Success Summary
         console.log('\n🌟 Automation completed!');
@@ -567,14 +616,14 @@ function validateConfiguration() {
 
     // Check required NocoDB configuration
     if (!CONFIG.nocodb.baseUrl || CONFIG.nocodb.baseUrl === 'https://your-nocodb-instance.com') {
-        errors.push('NOCODB_BASE_URL is not properly configured');
+        errors.push('NOCODB_BASE_URL is not configured or is set to the placeholder value.');
     }
     // Ensure email and password are not the placeholder values if they are critical for your setup
     if (!CONFIG.nocodb.credentials.email || CONFIG.nocodb.credentials.email === 'your-email@example.com') {
-        errors.push('NOCODB_EMAIL is not properly configured');
+        errors.push('NOCODB_EMAIL is not configured or is set to the placeholder value.');
     }
     if (!CONFIG.nocodb.credentials.password || CONFIG.nocodb.credentials.password === 'your-password') {
-        errors.push('NOCODB_PASSWORD is not properly configured');
+        errors.push('NOCODB_PASSWORD is not configured or is set to the placeholder value.');
     }
 
     // Check PostgreSQL configuration
