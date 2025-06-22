@@ -82,6 +82,26 @@ services:
       start_period: 30s
     networks:
       - traefik-network
+    labels:
+      - "traefik.enable=true"
+      # Localhost
+      - "traefik.http.routers.cpq-backend-local.rule=Host(`cpq-api.localhost`)"
+      - "traefik.http.routers.cpq-backend-local.entrypoints=web"
+      - "traefik.http.routers.cpq-backend-local.service=cpq_backend_api"
+      # HTTP
+      - "traefik.http.routers.cpq-backend-http.rule=Host(`${BACKEND_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.cpq-backend-http.entrypoints=web"
+      - "traefik.http.routers.cpq-backend-http.service=cpq_backend_api"
+
+      # HTTPS
+      - "traefik.http.routers.cpq-backend-https.rule=Host(`${BACKEND_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.cpq-backend-https.entrypoints=websecure"
+      - "traefik.http.routers.cpq-backend-https.tls=true"
+      - "traefik.http.routers.cpq-backend-https.tls.certresolver=myresolver"
+      - "traefik.http.routers.cpq-backend-https.service=cpq_backend_api"
+      - "traefik.http.services.cpq_backend_api.loadbalancer.server.port=${BACKEND_PORT}"
+      # This is the port the backend listens on inside the container, not the host port
+
 
   e2e_tests:
     build:
