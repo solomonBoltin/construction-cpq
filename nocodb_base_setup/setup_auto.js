@@ -467,6 +467,8 @@ async function runAutomation() {
         let base = await findExistingBase(CONFIG.base.title, apiToken);
         let pgSource;
 
+
+
         if (base) {
             console.log(`\\n✅ Base \"${CONFIG.base.title}\" already exists. Skipping creation.`);
             // Optionally, you could try to find the source if the base exists
@@ -508,29 +510,13 @@ async function runAutomation() {
             console.log(`\\n🎉 New base and source configured successfully!`);
         }
 
-        // Step 5: Save Swagger JSON
-        // Ensure base.id and apiToken are available
-        if (base && base.id && apiToken) {
-            // sleep for a short duration to ensure the base is ready
-            console.log(`\n⏳ Waiting for base to be ready before saving Swagger JSON...`);
-            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds
-            await saveSwaggerJson(base.id, apiToken);
-
-            // Step 6: Generate API client from the Swagger JSON
-            try {
-                await generateApiClient(CONFIG.generated.swaggerJsonPath);
-            } catch (error) {
-                console.error(`Failed to generate API client: ${error.message}`);
-                // Continue with the rest of the automation even if client generation fails
-            }
-        } else {
-            console.warn('Skipping Swagger JSON save and API client generation due to missing base ID or API token.');
-        }
-
-        
         // Step 7: Configure specific column types
         // Ensure baseId is available. If you create the base, you get it.
         // If you use an existing base, you might need to fetch its ID or have it in CONFIG.
+        // sleep for 5 seconds to ensure the base is ready
+        console.log(`\n⏳ Waiting for base to be ready before configuring columns...`);
+        await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5
+        
         const baseId = base.id;
         if (baseId) {
 
@@ -570,6 +556,28 @@ async function runAutomation() {
         } else {
             console.warn('\n⚠️ Base ID not available. Skipping column type configuration.');
         }
+
+        // Step 5: Save Swagger JSON
+        // Ensure base.id and apiToken are available
+        if (base && base.id && apiToken) {
+            // sleep for a short duration to ensure the base is ready
+            console.log(`\n⏳ Waiting for base to be ready before saving Swagger JSON...`);
+            await new Promise(resolve => setTimeout(resolve, 5000)); // Wait for 5 seconds
+            await saveSwaggerJson(base.id, apiToken);
+
+            // Step 6: Generate API client from the Swagger JSON
+            try {
+                await generateApiClient(CONFIG.generated.swaggerJsonPath);
+            } catch (error) {
+                console.error(`Failed to generate API client: ${error.message}`);
+                // Continue with the rest of the automation even if client generation fails
+            }
+        } else {
+            console.warn('Skipping Swagger JSON save and API client generation due to missing base ID or API token.');
+        }
+
+        
+
 
 
         // Success Summary

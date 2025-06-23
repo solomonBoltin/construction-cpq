@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from enum import Enum # Add timezone import
-from pydantic import field_serializer, BaseModel as PydanticBaseModel, ConfigDict
+from pydantic import field_serializer, BaseModel as PydanticBaseModel, ConfigDict, field_validator, validator
 from sqlalchemy.types import TypeDecorator
 from sqlalchemy.dialects.postgresql import JSONB
 import json
@@ -347,11 +347,12 @@ class QuoteBase(SQLModel):
     name: Optional[str] = Field(default=None, max_length=255)
     description: Optional[str] = Field(default=None)
     quote_config_id: int = Field(foreign_key="quote_config.id")
-    status: str = Field(
+    status: QuoteStatus = Field(
             default=QuoteStatus.DRAFT, 
             sa_column=Column(
                 SAEnum(QuoteStatus), 
                 default=QuoteStatus.DRAFT,
+                #nullable=False makes it required in nocodb 
             )
         )
     quote_type: QuoteType = Field(
@@ -359,6 +360,7 @@ class QuoteBase(SQLModel):
         sa_column=Column(
             SAEnum(QuoteType),
             default=QuoteType.GENERAL,
+            #nullable=False makes it required in nocodb 
             )
         )
     ui_state: Optional[str] = Field(default=None, max_length=100, index=True) # New field for UI state tracking

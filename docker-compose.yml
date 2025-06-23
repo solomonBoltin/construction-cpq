@@ -135,6 +135,9 @@ services:
     restart: "no" 
     networks:
       - traefik-network
+    deploy:
+      replicas: 0
+      
 
   e2e:
     build:
@@ -163,6 +166,8 @@ services:
         npm install ./generated/generated-client && 
         node main.js
       "
+    deploy:
+      replicas: 0
 
   cpq_nocodb_app:
     image: nocodb/nocodb:latest

@@ -5,7 +5,7 @@ from enum import Enum
 from typing import List, Optional, Dict, Any
 
 from fastapi import HTTPException
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, field_validator
 from sqlalchemy.orm import selectinload
 from sqlmodel import Session, select, func
 
@@ -17,6 +17,7 @@ from app.models import (
     QuoteProductEntry,
     Product,
     ProductCategory,
+    QuoteStatus,
     QuoteType,
     VariationGroup,
     VariationOption,
@@ -43,6 +44,12 @@ class QuotePreview(BaseModel):
     status: str
     quote_type: QuoteType
     updated_at: datetime
+    
+    @field_validator('status', mode="before")
+    def validate_my_field(cls, v):
+        if v is None:
+            return QuoteStatus.DRAFT
+        return v
 
 class CategoryPreview(BaseModel):
     """A lightweight summary of a product category."""
@@ -187,6 +194,14 @@ class QuoteProcessService:
         logger.debug(f"Validated quotes: {validated_quotes}")
         return validated_quotes
 
+    def get_quote_by_id(self, quote_id: int) -> Quote:
+        """Fetches a single quote by its ID."""
+        logger.info(f"Fetching quote with ID: {quote_id}")
+        quote = self.session.get(Quote, quote_id)
+        if not quote:
+            raise ValueError(f"Quote with ID {quote_id} not found")
+        return quote
+
     def create_quote(self, name: str, description: Optional[str], quote_type: QuoteType, config_id: int = 1) -> Quote:
         """Creates a new quote with a specific type."""
         logger.info(f"Creating new quote '{name}' of type '{quote_type.value}'")
@@ -199,7 +214,7 @@ class QuoteProcessService:
                 name=name,
                 description=description,
                 quote_type=quote_type,
-                status="draft",
+                status=QuoteStatus.DRAFT,
                 quote_config_id=config_id,
                 quote_config=quote_config,
                 created_at=datetime.now(timezone.utc),

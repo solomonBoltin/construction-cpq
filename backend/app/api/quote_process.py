@@ -28,6 +28,17 @@ def list_quotes(
     """List all quotes, with optional filtering and pagination."""
     return service.get_quotes(quote_type=quote_type, offset=offset, limit=limit)
 
+@router.get("/quotes/{quote_id}", response_model=Quote)
+def get_quote(
+    quote_id: int,
+    service: QuoteProcessService = Depends(get_quote_process_service),
+):
+    """Get a single quote by its ID."""
+    try:
+        return service.get_quote_by_id(quote_id=quote_id)
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
 @router.post("/quotes", response_model=Quote) # Changed to return full Quote model
 def create_quote(
     name: str,

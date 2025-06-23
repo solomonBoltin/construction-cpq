@@ -1,3 +1,6 @@
+from app.models import QuoteType
+
+
 UNIT_TYPES_DATA = [
     { "name": "Each", "category": "count", "description": "A single item." },
     { "name": "Linear Foot", "category": "length", "description": "Measurement in linear feet." },
@@ -63,17 +66,17 @@ MATERIALS_DATA = [
 PRODUCT_CATEGORIES_DATA = [
     {
       "name": "Wood Fence",
-      "type": "general",
+      "type": "fence",
       "image_url": "/images/categories/wood_fence.jpg"
     },
     {
       "name": "Metal Fence",
-      "type": "general",
+      "type": "fence",
       "image_url": "/images/categories/metal_fence.jpg"
     },
     {
       "name": "Vinyl Fence",
-      "type": "general",
+      "type": "fence",
       "image_url": "/images/categories/vinyl_fence.jpg"
     }
 ]
@@ -168,6 +171,7 @@ QUOTES_DATA = [
     {
         "name": "Residential Fence Project - 100ft",
         "quote_config_name": "Residential Default",
+        "quote_type": QuoteType.FENCE_PROJECT,
         "product_entries": [
             {
                 "product_name": "6ft Postmaster Horizontal JPC Stained Fence",

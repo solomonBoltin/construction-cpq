@@ -4,6 +4,7 @@ from sqlmodel import Session, select
 from sqlalchemy.exc import IntegrityError
 
 from app.models import (
+    QuoteType,
     UnitType, 
     Material,
     Product,
@@ -287,8 +288,8 @@ class QuoteSeeder(BaseSeeder):
                 # Add other Quote fields from quote_data if necessary, e.g., user_id, status
                 defaults={ # Ensure all required fields for QuoteBase are covered or have defaults
                     'user_id': quote_data.get('user_id'), # Example: add if you have user_id
-                    'status': quote_data.get('status', 'DRAFT'),
-                    'quote_type': quote_data.get('quote_type', 'GENERAL') 
+                    # 'status': quote_data.get('status', 'DRAFT'),
+                    'quote_type': quote_data.get('quote_type', QuoteType.GENERAL) 
                 }
             )
 
