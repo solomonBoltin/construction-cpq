@@ -517,3 +517,28 @@ class QuoteProcessService:
         statement = select(CalculatedQuote).where(CalculatedQuote.quote_id == quote_id)
         return self.session.exec(statement).first()
 
+    def update_quote_product_entry(self, product_entry_id: int, quantity: Optional[Decimal] = None, notes: Optional[str] = None) -> MaterializedProductEntry:
+        """Update quantity and/or notes for a quote product entry."""
+        logger.info(f"Updating QuoteProductEntry ID: {product_entry_id} with quantity={quantity}, notes={notes}")
+        entry = self.session.get(QuoteProductEntry, product_entry_id)
+        if not entry:
+            raise HTTPException(status_code=404, detail=f"QuoteProductEntry with id {product_entry_id} not found")
+        updated = False
+        if quantity is not None:
+            entry.quantity_of_product_units = quantity
+            updated = True
+        if notes is not None:
+            entry.notes = notes
+            updated = True
+        if updated:
+            try:
+                self.session.add(entry)
+                self.session.commit()
+                self.session.refresh(entry)
+                logger.info(f"Successfully updated QuoteProductEntry ID: {product_entry_id}")
+            except Exception as e:
+                logger.error(f"Error updating entry {product_entry_id}: {e}", exc_info=True)
+                self.session.rollback()
+                raise HTTPException(status_code=500, detail="Failed to update product entry.")
+        return self._materialize_product_entry(entry)
+

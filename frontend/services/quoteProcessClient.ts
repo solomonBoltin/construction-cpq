@@ -108,18 +108,14 @@ export const quoteProcessClient = {
         // No content to parse for 204
     },
     
-    // The API spec for updating quantity/notes seems to be missing.
-    // Assuming a PUT request to /product-entries/{product_entry_id} or similar.
-    // For now, this is a placeholder. The mock has this logic.
     updateQuoteProductEntry: async (productEntryId: number, data: { quantity?: number; notes?: string }): Promise<MaterializedProductEntry> => {
-        // Example: PUT /product-entries/{product_entry_id}
-        // const response = await fetch(`${API_BASE_URL}/quote-process/product-entries/${productEntryId}`, {
-        //     method: 'PUT',
-        //     headers,
-        //     body: JSON.stringify(data),
-        // });
-        // return handleResponse<MaterializedProductEntry>(response);
-        throw new Error("updateQuoteProductEntry not implemented for real API client yet - API endpoint spec needed.");
+        // PUT /quote-process/product-entries/{product_entry_id}
+        const response = await fetch(`${API_BASE_URL}/quote-process/product-entries/${productEntryId}`, {
+            method: 'PUT',
+            headers,
+            body: JSON.stringify(data),
+        });
+        return handleResponse<MaterializedProductEntry>(response);
     },
 
     setQuoteProductVariationOption: async (productEntryId: number, variationOptionId: number): Promise<MaterializedProductEntry> => {

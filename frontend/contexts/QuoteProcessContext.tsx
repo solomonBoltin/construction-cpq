@@ -231,7 +231,7 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
         // No loading state for faster UI
         try {
             // @ts-ignore - Mock client
-            const updatedEntry = await apiClient.updateQuoteProductEntry(state.activeQuoteId, entryId, { quantity });
+            const updatedEntry = await apiClient.updateQuoteProductEntry(entryId, { quantity });
             dispatch({ type: 'UPDATE_ACTIVE_QUOTE_ENTRY', payload: updatedEntry as MockQuoteProductEntry });
         } catch (err) {
             console.error("Failed to update quantity:", err);

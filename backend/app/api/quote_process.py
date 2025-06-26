@@ -2,6 +2,7 @@ from typing import List, Optional
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session
+from pydantic import BaseModel
 
 from app.database import get_session
 from app.models import Quote, QuoteType, ProductRole, CalculatedQuote
@@ -204,3 +205,21 @@ def list_products_by_category_type(
 ):
     """List products within all categories of a given type."""
     return service.get_products_previews_by_category_type(category_type=category_type, offset=offset, limit=limit)
+
+class UpdateQuoteProductEntryRequest(BaseModel):
+    quantity: Optional[Decimal] = None
+    notes: Optional[str] = None
+
+@router.put("/product-entries/{product_entry_id}", response_model=MaterializedProductEntry)
+def update_quote_product_entry(
+    product_entry_id: int,
+    body: UpdateQuoteProductEntryRequest,
+    service: QuoteProcessService = Depends(get_quote_process_service),
+):
+    """Update quantity and/or notes for a quote product entry."""
+    try:
+        return service.update_quote_product_entry(product_entry_id=product_entry_id, quantity=body.quantity, notes=body.notes)
+    except HTTPException as e:
+        raise e
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

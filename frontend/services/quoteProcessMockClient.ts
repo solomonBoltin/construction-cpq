@@ -165,7 +165,7 @@ export const quoteProcessMockApi = {
         // Find the entry in all active quotes
         const entry = Object.values(mockDb.active_quotes).flatMap(q => q.product_entries).find(e => e.id === productEntryId);
         if (!entry) return null; // Not found
-        
+
         const product = mockDb.products.find(p => p.id === entry.product_id);
         if (!product) return null;
 
@@ -216,7 +216,9 @@ export const quoteProcessMockApi = {
             role: role,
             quantity_of_product_units: quantity, // Use renamed field
             notes: "",
-            selected_variations: [], 
+            selected_variations: [],
+            product_name: '',
+            product_unit_name: ''
         };
         quote.product_entries.push(newEntry);
         mockDb.active_quotes[quoteId] = {...quote}; // Ensure update
@@ -231,16 +233,19 @@ export const quoteProcessMockApi = {
         mockDb.active_quotes[quoteId] = {...quote};
     },
     
-    updateQuoteProductEntry: async (quoteId: number, productEntryId: number, data: { quantity?: number; notes?: string }): Promise<MockQuoteProductEntry> => {
+    updateQuoteProductEntry: async (productEntryId: number, data: { quantity?: number; notes?: string }): Promise<MockQuoteProductEntry> => {
         await delay(150);
-        const quote = mockDb.active_quotes[quoteId];
+        // Find the quote that contains this entry
+        const quote = Object.values(mockDb.active_quotes).find(q => q.product_entries.some(e => e.id === productEntryId));
         if (!quote) throw new Error("Quote not found");
         const entry = quote.product_entries.find(e => e.id === productEntryId);
         if (!entry) throw new Error("Entry not found");
+    
+
 
         if (data.quantity !== undefined) entry.quantity_of_product_units = data.quantity; // Use renamed field
         if (data.notes !== undefined) entry.notes = data.notes;
-        mockDb.active_quotes[quoteId] = {...quote};
+        mockDb.active_quotes[quote.id] = {...quote};
         return entry;
     },
 
