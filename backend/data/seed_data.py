@@ -78,6 +78,16 @@ PRODUCT_CATEGORIES_DATA = [
       "name": "Vinyl Fence",
       "type": "fence",
       "image_url": "/images/categories/vinyl_fence.jpg"
+    },
+    {
+      "name": "Gate",
+      "type": "gate",
+      "image_url": "/images/categories/gate.jpg"
+    },
+    {
+      "name": "Project Add-ons",
+      "type": "additional",
+      "image_url": "/images/categories/addons.jpg"
     }
 ]
 
@@ -143,6 +153,43 @@ PRODUCTS_DATA = [
           ]
         }
       ]
+    },
+    {
+      "name": "Wood Gate",
+      "description": "A standard wood gate.",
+      "product_unit_type_name": "Each",
+      "unit_labor_cost": 50.00,
+      "image_url": None,
+      "category_names": ["Gate"],
+      "materials": [
+        { "material_name": "JPC Picket 5.5in x 6ft", "quantity_per_product_unit": 10 },
+        { "material_name": "Postmaster Post 8ft", "quantity_per_product_unit": 2 },
+        { "material_name": "Concrete Mix 80lb", "quantity_per_product_unit": 1 }
+      ],
+      "variation_groups": []
+    },
+    {
+      "name": "Hard Digging",
+      "description": "Additional labor for rocky or difficult soil (per foot).",
+      "product_unit_type_name": "Linear Foot",
+      "unit_labor_cost": 5.00,
+      "image_url": None,
+      "category_names": ["Project Add-ons"],
+      "materials": [
+        { "material_name": "Concrete Mix 80lb", "quantity_per_product_unit": 0.05 }
+      ],
+      "variation_groups": []
+    },
+    {
+      "name": "Special Permit",
+      "description": "Required for certain projects, includes filing and processing fees.",
+      "product_unit_type_name": "Each",
+      "unit_labor_cost": 22.00,
+      "image_url": None,
+      "category_names": ["Project Add-ons"],
+      "materials": [
+      ],
+      "variation_groups": []
     }
 ]
 

@@ -1,0 +1,36 @@
+Hello copilot agent your job is to test the frontend app to see the main process of fence quoting works 
+the system allows you to cerate a fence project, select a fence product its variations, a gate, additional products, and calulate it and finalise the quote.
+in order to accsess frontend visit localhost:3000 using playright mcp u have acsess to.
+if u see errors in console, missing data, stuff that prevents you from completeing the tests, write them to issus.txt 
+be aware that the data provided in ui is coming from the seeding we do in backend/data/seed_data.py 
+when ever you face an issue that can fixed by adding / modefing seed data, suggest it.
+if facing other issue try to investigate it in frontend and suggest solutions.
+alwase befor running the tests you should run: 
+docker-compose down -v
+then
+docker-compose up -d --build
+
+when having issues you can check the logs of frontend and backend using: 
+docker-compose logs frontend
+docker-compose logs backend
+if you want to chek the db u can use psql and creds from .env
+
+TestsCase1(Full fence quoting process):
+1.  Navigate to the application.
+2.  Click on "New Project".
+3.  Enter a project name.
+4.  Enter description.
+5.  Click on "Create Project".
+6.  Select a fence category (e.g., "Wood Fence").
+7.  Select a main product from the "Main Product" selection screen.
+8.  Configure the main product options (e.g., height, color).
+9.  Click "Continue" to proceed to the "Secondary Product" selection screen.
+10. Select a secondary product (e.g., Gate) from the "Secondary Product" selection screen.
+11. Click "Continue" to proceed to the "Configure Secondary" screen.
+12. Configure the secondary product options (e.g., size, color).
+13. Click "Continue" to proceed to the "Add-ons" screen.
+14. Select any additional products (e.g., post caps, hardware) from the "Add-ons" screen.
+15. Click "Continue" to proceed to the "Review" screen.
+16. Review all selected products and configurations on the "Review" screen.
+17. Click "Review & Calculate" to generate the final quote.
+18. Verify that the final quote is displayed.

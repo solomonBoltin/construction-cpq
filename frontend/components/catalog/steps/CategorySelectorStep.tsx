@@ -5,7 +5,7 @@ import { apiClient } from '../../../services/api';
 import { CategoryPreview } from '../../../types';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import ProductDisplayCard from '../ProductDisplayCard';
-import { MainProductCategoryType } from '../../../constants';
+import { FenceCategoryType } from '../../../constants';
 
 
 const CategorySelectorStep: React.FC = () => {
@@ -20,7 +20,7 @@ const CategorySelectorStep: React.FC = () => {
             setError(null);
             try {
                 // For "Choose Category" step, we usually mean main product category type, e.g., "fence"
-                const data = await apiClient.listCategories(MainProductCategoryType);
+                const data = await apiClient.listCategories(FenceCategoryType);
                 setCategories(data);
             } catch (err) {
                 setError((err as Error).message);
@@ -55,7 +55,7 @@ const CategorySelectorStep: React.FC = () => {
                     ))}
                 </div>
             ) : (
-                <p className="text-slate-500">No categories found for '{MainProductCategoryType}'.</p>
+                <p className="text-slate-500">No categories found for '{FenceCategoryType}'.</p>
             )}
         </div>
     );

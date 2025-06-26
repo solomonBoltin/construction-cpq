@@ -194,3 +194,13 @@ def get_calculated_quote_details(
         # For now, returning None which FastAPI handles with the Optional response model
         return None
     return calculated_quote
+
+@router.get("/products/by-category-type/{category_type}", response_model=List[ProductPreview])
+def list_products_by_category_type(
+    category_type: str,
+    offset: int = 0,
+    limit: int = Query(default=100, le=500),
+    service: QuoteProcessService = Depends(get_quote_process_service),
+):
+    """List products within all categories of a given type."""
+    return service.get_products_previews_by_category_type(category_type=category_type, offset=offset, limit=limit)

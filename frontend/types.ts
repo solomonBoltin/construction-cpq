@@ -234,7 +234,6 @@ export type CatalogStepKey =
 
 export interface CatalogContextState {
     selectedCategoryName: string | null; // For main product
-    activeProductEntryId: number | null; // QuoteProductEntry.id being configured
     // This will hold the "materialized" version of the active quote
     activeQuoteFull?: MockFullQuote | null; 
 }

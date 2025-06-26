@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useCallback } from 'react';
 import { useQuoteProcess } from '../../../contexts/QuoteProcessContext';
 import { apiClient } from '../../../services/api';
@@ -19,23 +18,21 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
         error: contextError,
         dispatch
     } = useQuoteProcess();
-    const { activeProductEntryId, activeQuoteFull } = catalogContext;
+    const { activeQuoteFull } = catalogContext;
 
     const [productEntry, setProductEntry] = useState<MaterializedProductEntry | null>(null);
     const [isLoading, setIsLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
     
-    // Find the entry that matches the role; activeProductEntryId might be from a different role if user navigates back/forth
+    // Find the entry that matches the role
     const entryForRole = activeQuoteFull?.product_entries.find(e => e.role === role);
-    const currentEntryIdToConfigure = entryForRole?.id || activeProductEntryId;
-
 
     useEffect(() => {
-        if (currentEntryIdToConfigure && activeQuoteFull?.id) {
+        if (entryForRole?.id && activeQuoteFull?.id) {
             setIsLoading(true);
             setError(null);
             // @ts-ignore - Mock client takes quoteId and entryId
-            apiClient.getMaterializedProductEntry(activeQuoteFull.id, currentEntryIdToConfigure)
+            apiClient.getMaterializedProductEntry(entryForRole.id)
                 .then(data => {
                     setProductEntry(data);
                 })
@@ -48,7 +45,7 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
             setProductEntry(null); // No entry for this role yet
         }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [currentEntryIdToConfigure, activeQuoteFull?.id]);
+    }, [entryForRole?.id, activeQuoteFull?.id]);
 
 
     // Debounced quantity update
@@ -59,7 +56,7 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
         [updateProductQuantity]
     );
 
-    if (!currentEntryIdToConfigure) {
+    if (!entryForRole?.id) {
          return (
             <div className="text-center p-8 bg-white rounded-lg shadow">
                  <h3 className="font-bold text-lg text-slate-700">No product selected for configuration.</h3>

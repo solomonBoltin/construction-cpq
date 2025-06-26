@@ -310,6 +310,28 @@ class QuoteProcessService:
         products = self.session.exec(statement).all()
         return [ProductPreview.model_validate(p) for p in products]
 
+    def get_products_previews_by_category_type(self, category_type: str, offset: int = 0, limit: int = 100) -> List[ProductPreview]:
+        """Gets product previews for a given category type, with pagination."""
+        logger.info(f"Fetching product previews for category type: {category_type}, offset: {offset}, limit: {limit}")
+        # Find all categories of this type
+        categories = self.session.exec(
+            select(ProductCategory).where(ProductCategory.type == category_type)
+        ).all()
+        category_ids = [c.id for c in categories]
+        if not category_ids:
+            return []
+        # Find all products linked to these categories
+        statement = (
+            select(Product)
+            .join(ProductProductCategoryLink, Product.id == ProductProductCategoryLink.product_id)
+            .where(ProductProductCategoryLink.product_category_id.in_(category_ids))
+            .offset(offset)
+            .limit(limit)
+            .order_by(Product.name)
+        )
+        products = self.session.exec(statement).all()
+        return [ProductPreview.model_validate(p) for p in products]
+
     # === Quote Product Entry Management ===
 
     def add_quote_product_entry(self, quote_id: int, product_id: int, quantity: Decimal, role: ProductRole) -> MaterializedProductEntry:

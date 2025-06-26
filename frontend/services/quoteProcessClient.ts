@@ -142,5 +142,14 @@ export const quoteProcessClient = {
         const response = await fetch(`${API_BASE_URL}/quote-process/quotes/${quoteId}/calculate`, { headers });
         if (response.status === 404) return null; // Or if API returns empty for not found
         return handleResponse<CalculatedQuote>(response);
-    }
+    },
+
+    listProductsByCategoryType: async (categoryType: string, offset: number = 0, limit: number = 100): Promise<ProductPreview[]> => {
+        const params = new URLSearchParams({
+            offset: offset.toString(),
+            limit: limit.toString(),
+        });
+        const response = await fetch(`${API_BASE_URL}/quote-process/products/by-category-type/${encodeURIComponent(categoryType)}?${params.toString()}`, { headers });
+        return handleResponse<ProductPreview[]>(response);
+    },
 };

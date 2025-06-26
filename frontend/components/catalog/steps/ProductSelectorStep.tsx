@@ -4,7 +4,7 @@ import { apiClient } from '../../../services/api';
 import { ProductPreview, ProductRole } from '../../../types';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import ProductDisplayCard from '../ProductDisplayCard';
-import { GateCategoryType, AddonCategoryType, MainProductCategoryType } from '../../../constants';
+import { GateCategoryType } from '../../../constants';
 
 
 interface ProductSelectorStepProps {
@@ -30,31 +30,28 @@ const ProductSelectorStep: React.FC<ProductSelectorStepProps> = ({ role }) => {
     const title = role === ProductRole.MAIN ? 'Main Fence' : 'Gate';
 
     useEffect(() => {
-        if (!categoryForRole) {
-            if (role === ProductRole.MAIN) {
-                 setError("Please select a category first.");
-            } else { // Secondary product (gate) doesn't strictly depend on main category selection
-                 fetchProducts(GateCategoryType);
+        const fetchProducts = async () => {
+            setIsLoading(true);
+            setError(null);
+            try {
+                let data: ProductPreview[] = [];
+                if (role === ProductRole.MAIN) {
+                    if (!selectedCategoryName) throw new Error("Please select a category first.");
+                    data = await apiClient.listProductsInCategory(selectedCategoryName);
+                } else if (role === ProductRole.SECONDARY) {
+                    data = await apiClient.listProductsByCategoryType(GateCategoryType);
+                }
+                setProducts(data);
+            } catch (err) {
+                setError((err as Error).message);
+                dispatch({type: 'SET_ERROR', payload: (err as Error).message});
+            } finally {
+                setIsLoading(false);
             }
-            return;
-        }
-        fetchProducts(categoryForRole);
+        };
+        fetchProducts();
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [categoryForRole, role]);
-
-    const fetchProducts = async (categoryName: string) => {
-        setIsLoading(true);
-        setError(null);
-        try {
-            const data = await apiClient.listProductsInCategory(categoryName);
-            setProducts(data);
-        } catch (err) {
-            setError((err as Error).message);
-            dispatch({type: 'SET_ERROR', payload: (err as Error).message});
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    }, [selectedCategoryName, role]);
     
     const currentLoading = isLoading || contextLoading;
     const currentError = error || contextError;

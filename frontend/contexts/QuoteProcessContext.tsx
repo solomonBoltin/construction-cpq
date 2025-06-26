@@ -19,7 +19,7 @@ interface QuoteProcessState {
     currentView: AppView;
     activeQuoteId: number | null;
     activeStep: CatalogStepKey;
-    catalogContext: CatalogContextState;
+    catalogContext: Omit<CatalogContextState, 'activeProductEntryId'>;
     quotes: QuotePreview[];
     isLoading: boolean;
     error: string | null;
@@ -33,7 +33,6 @@ const initialState: QuoteProcessState = {
     activeStep: 'choose_category',
     catalogContext: {
         selectedCategoryName: null,
-        activeProductEntryId: null,
         activeQuoteFull: null,
     },
     quotes: [],
@@ -52,7 +51,6 @@ type Action =
     | { type: 'SET_ACTIVE_QUOTE_ID'; payload: number | null }
     | { type: 'SET_ACTIVE_STEP'; payload: CatalogStepKey }
     | { type: 'SET_SELECTED_CATEGORY'; payload: string | null }
-    | { type: 'SET_ACTIVE_PRODUCT_ENTRY_ID'; payload: number | null }
     | { type: 'SET_ACTIVE_QUOTE_FULL'; payload: MockFullQuote | null }
     | { type: 'UPDATE_ACTIVE_QUOTE_ENTRY'; payload: MockQuoteProductEntry }
     | { type: 'REMOVE_ACTIVE_QUOTE_ENTRY'; payload: number } // entryId
@@ -79,8 +77,6 @@ const reducer = (state: QuoteProcessState, action: Action): QuoteProcessState =>
             return { ...state, activeStep: action.payload };
         case 'SET_SELECTED_CATEGORY':
             return { ...state, catalogContext: { ...state.catalogContext, selectedCategoryName: action.payload } };
-        case 'SET_ACTIVE_PRODUCT_ENTRY_ID':
-            return { ...state, catalogContext: { ...state.catalogContext, activeProductEntryId: action.payload } };
         case 'SET_ACTIVE_QUOTE_FULL': {
             const incomingQuote = action.payload;
             if (!incomingQuote) {
@@ -182,7 +178,6 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
                 dispatch({ type: 'SET_VIEW', payload: 'catalog' });
                 dispatch({ type: 'SET_ACTIVE_STEP', payload: 'choose_category' });
                 dispatch({ type: 'SET_SELECTED_CATEGORY', payload: null }); // Reset category selection
-                dispatch({ type: 'SET_ACTIVE_PRODUCT_ENTRY_ID', payload: null });
             } else {
                 dispatch({type: 'SET_ERROR', payload: 'Failed to load quote for editing.'});
             }
@@ -222,7 +217,6 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // @ts-ignore - Mock client takes quantity and returns MockQuoteProductEntry
             const newEntry = await apiClient.addQuoteProductEntry(state.activeQuoteId, productId, 1, role); // Default quantity 1
             dispatch({ type: 'ADD_ACTIVE_QUOTE_ENTRY', payload: newEntry as MockQuoteProductEntry});
-            dispatch({ type: 'SET_ACTIVE_PRODUCT_ENTRY_ID', payload: newEntry.id });
             const nextStep = role === ProductRole.MAIN ? 'configure_main' : 'configure_secondary';
             dispatch({ type: 'SET_ACTIVE_STEP', payload: nextStep });
         } catch (err) {

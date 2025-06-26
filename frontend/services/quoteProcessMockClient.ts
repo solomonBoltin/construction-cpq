@@ -150,15 +150,22 @@ export const quoteProcessMockApi = {
         return results.slice(offset, offset + limit);
     },
     
+    listProductsByCategoryType: async (categoryType: string, offset: number = 0, limit: number = 100): Promise<ProductPreview[]> => {
+        await delay(200);
+        // Find all categories of this type
+        const categoryNames = mockDb.categories.filter(c => c.type === categoryType).map(c => c.name);
+        const results = mockDb.products.filter(p => p.category_name && categoryNames.includes(p.category_name));
+        return results.slice(offset, offset + limit);
+    },
+    
     // This combines fetching product entry and materializing it for the mock
-    getMaterializedProductEntry: async (quoteId: number, productEntryId: number): Promise<MaterializedProductEntry | null> => {
+    getMaterializedProductEntry: async (productEntryId: number): Promise<MaterializedProductEntry | null> => {
         await delay(150);
-        const quote = mockDb.active_quotes[quoteId];
-        if (!quote) return null;
-        
-        const entry = quote.product_entries.find(e => e.id === productEntryId);
-        if (!entry) return null;
 
+        // Find the entry in all active quotes
+        const entry = Object.values(mockDb.active_quotes).flatMap(q => q.product_entries).find(e => e.id === productEntryId);
+        if (!entry) return null; // Not found
+        
         const product = mockDb.products.find(p => p.id === entry.product_id);
         if (!product) return null;
 

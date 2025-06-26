@@ -10,6 +10,7 @@ from app.models import (
     Quote,
     QuoteProductEntry,
     ProductMaterial,
+    QuoteStatus,
     VariationOptionMaterial,
     Material,
     CalculatedQuote,
@@ -329,7 +330,7 @@ class QuoteCalculator:
             
             # Update quote status
             logger.debug(f"Updating status of Quote ID: {quote_id} to 'calculated'.")
-            quote.status = "calculated"
+            quote.status = QuoteStatus.FINAL
             session.add(quote)
             
             logger.info(f"Committing session for Quote ID: {quote_id}")
