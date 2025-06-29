@@ -155,6 +155,10 @@ const QuoteProcessContext = createContext<QuoteProcessContextType | undefined>(u
 
 export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [state, dispatch] = useReducer(reducer, initialState);
+    const [showMainProductModal, setShowMainProductModal] = React.useState(false);
+    const [pendingStep, setPendingStep] = React.useState<CatalogStepKey | null>(null);
+    // Track which modal to show: 'main' | 'secondary' | null
+    const [productModalType, setProductModalType] = React.useState<'main' | 'secondary' | null>(null);
 
     const fetchQuotes = useCallback(async () => {
         dispatch({ type: 'START_LOADING' });
@@ -212,6 +216,15 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
 
     const selectProduct = useCallback(async (productId: number, role: ProductRole) => {
         if (!state.activeQuoteId) return;
+        console.log("Selecting product:", productId, "for role:", role);
+        // Enforce only one MAIN product on frontend
+        if (role === ProductRole.MAIN && state.catalogContext.activeQuoteFull) {
+            const hasMain = state.catalogContext.activeQuoteFull.product_entries.some(e => e.role === ProductRole.MAIN);
+            if (hasMain) {
+                dispatch({ type: 'SET_ERROR', payload: 'A main product already exists for this quote. Please remove it before adding a new one.' });
+                return;
+            }
+        }
         dispatch({ type: 'START_LOADING' });
         try {
             // @ts-ignore - Mock client takes quantity and returns MockQuoteProductEntry
@@ -224,7 +237,7 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
         } finally {
             dispatch({ type: 'END_LOADING' });
         }
-    }, [state.activeQuoteId]);
+    }, [state.activeQuoteId, state.catalogContext.activeQuoteFull]);
 
     const updateProductQuantity = useCallback(async (entryId: number, quantity: number) => {
         if (!state.activeQuoteId) return;
@@ -244,8 +257,11 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
         dispatch({ type: 'START_LOADING' });
         try {
             // @ts-ignore - Mock client
-            const updatedEntry = await apiClient.setQuoteProductVariationOption(state.activeQuoteId, entryId, groupId, optionId);
+            console.log("Updating variation for entryId:", entryId, "groupId:", groupId, "optionId:", optionId);
+            const updatedEntry = await apiClient.setQuoteProductVariationOption(entryId, optionId);
             dispatch({ type: 'UPDATE_ACTIVE_QUOTE_ENTRY', payload: updatedEntry as MockQuoteProductEntry });
+            // reload display data if needed
+            
         } catch (err) {
             dispatch({ type: 'SET_ERROR', payload: (err as Error).message });
         } finally {
@@ -274,9 +290,51 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
     }, [state.activeQuoteId, state.catalogContext.activeQuoteFull]);
     
+    // Helper to check if main product is selected
+    const isMainProductSelected = !!state.catalogContext.activeQuoteFull?.product_entries?.some(e => e.role === ProductRole.MAIN);
+    // Helper to check if secondary product is selected
+    const isSecondaryProductSelected = !!state.catalogContext.activeQuoteFull?.product_entries?.some(e => e.role === ProductRole.SECONDARY);
+
+    // Handler for modal response
+    const handleMainProductModalResponse = (deleteProduct: boolean) => {
+        setShowMainProductModal(false);
+        if (deleteProduct && state.catalogContext.activeQuoteFull) {
+            let entryToRemove = null;
+            if (productModalType === 'main') {
+                entryToRemove = state.catalogContext.activeQuoteFull.product_entries.find(e => e.role === ProductRole.MAIN);
+            } else if (productModalType === 'secondary') {
+                entryToRemove = state.catalogContext.activeQuoteFull.product_entries.find(e => e.role === ProductRole.SECONDARY);
+            }
+            if (entryToRemove) {
+                dispatch({ type: 'REMOVE_ACTIVE_QUOTE_ENTRY', payload: entryToRemove.id });
+            }
+            if (pendingStep) {
+                dispatch({ type: 'SET_ACTIVE_STEP', payload: pendingStep });
+                setPendingStep(null);
+            }
+        } else {
+            setPendingStep(null);
+        }
+        setProductModalType(null);
+    };
+
+    // Enhanced goToStep
     const goToStep = useCallback((step: CatalogStepKey) => {
+        // If clicking on first two steps and main product is selected, show modal
+        if ((step === 'choose_category' || step === 'choose_main_product') && isMainProductSelected) {
+            setPendingStep(step);
+            setProductModalType('main');
+            setShowMainProductModal(true);
+            return;
+        }
+        if ((step === 'choose_secondary_product') && isSecondaryProductSelected) {
+            setPendingStep(step);
+            setProductModalType('secondary');
+            setShowMainProductModal(true);
+            return;
+        }
         dispatch({ type: 'SET_ACTIVE_STEP', payload: step });
-    }, []);
+    }, [isMainProductSelected, isSecondaryProductSelected]);
 
     const calculateActiveQuote = useCallback(async () => {
         if (!state.activeQuoteId) return;
@@ -324,6 +382,21 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
             fetchCalculatedQuote
         }}>
             {children}
+            {/* Modal for main/secondary product already selected */}
+            {showMainProductModal && (
+                <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
+                    <div className="bg-white p-6 rounded-lg shadow-lg max-w-sm w-full">
+                        <h3 className="text-lg font-bold mb-2 text-slate-800">
+                            {productModalType === 'main' ? 'Main product already selected' : 'Secondary product already selected'}
+                        </h3>
+                        <p className="mb-4 text-slate-700">Would you like to delete it?</p>
+                        <div className="flex justify-end gap-2">
+                            <button onClick={() => handleMainProductModalResponse(true)} className="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Yes</button>
+                            <button onClick={() => handleMainProductModalResponse(false)} className="bg-slate-300 text-slate-800 px-4 py-2 rounded hover:bg-slate-400">No</button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </QuoteProcessContext.Provider>
     );
 };

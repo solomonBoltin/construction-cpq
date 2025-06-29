@@ -1,6 +1,5 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useCallback } from 'react';
 import { useQuoteProcess } from '../../../contexts/QuoteProcessContext';
-import { apiClient } from '../../../services/api';
 import { MaterializedProductEntry, ProductRole } from '../../../types';
 import LoadingSpinner from '../../common/LoadingSpinner';
 
@@ -16,37 +15,13 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
         goToStep,
         isLoading: contextLoading,
         error: contextError,
-        dispatch
     } = useQuoteProcess();
     const { activeQuoteFull } = catalogContext;
 
-    const [productEntry, setProductEntry] = useState<MaterializedProductEntry | null>(null);
-    const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+
     
-    // Find the entry that matches the role
-    const entryForRole = activeQuoteFull?.product_entries.find(e => e.role === role);
-
-    useEffect(() => {
-        if (entryForRole?.id && activeQuoteFull?.id) {
-            setIsLoading(true);
-            setError(null);
-            // @ts-ignore - Mock client takes quoteId and entryId
-            apiClient.getMaterializedProductEntry(entryForRole.id)
-                .then(data => {
-                    setProductEntry(data);
-                })
-                .catch(err => {
-                    setError((err as Error).message);
-                    dispatch({type: 'SET_ERROR', payload: (err as Error).message});
-                })
-                .finally(() => setIsLoading(false));
-        } else {
-            setProductEntry(null); // No entry for this role yet
-        }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [entryForRole?.id, activeQuoteFull?.id]);
-
+    // Find the entry that matches the role directly from the context
+    const productEntry = activeQuoteFull?.product_entries.find(e => e.role === role) as MaterializedProductEntry | undefined;
 
     // Debounced quantity update
     const debouncedUpdateQuantity = useCallback(
@@ -56,7 +31,7 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
         [updateProductQuantity]
     );
 
-    if (!entryForRole?.id) {
+    if (!productEntry?.id) {
          return (
             <div className="text-center p-8 bg-white rounded-lg shadow">
                  <h3 className="font-bold text-lg text-slate-700">No product selected for configuration.</h3>
@@ -71,8 +46,8 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
         );
     }
     
-    const currentLoading = isLoading || contextLoading;
-    const currentError = error || contextError;
+    const currentLoading = contextLoading;
+    const currentError = contextError;
 
     if (currentLoading) return <LoadingSpinner />;
     if (currentError && !productEntry) return <div className="text-red-500 p-4 bg-red-50 rounded-md">Error: {currentError}</div>;
@@ -80,12 +55,12 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
          return <div className="text-slate-500 p-4">Select a product to configure its options.</div>;
     }
 
+    console.log("ProductConfiguratorStep - productEntry:", productEntry);
 
     return (
         <div className="fade-in">
             <h2 className="text-2xl font-bold text-slate-800 mb-1">Configure: {productEntry.product_name}</h2>
             <p className="text-slate-600 mb-6">Set the quantity and options for this item ({productEntry.role?.toLowerCase()}).</p>
-
             <div className="bg-white p-6 rounded-lg shadow-md">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     <div>

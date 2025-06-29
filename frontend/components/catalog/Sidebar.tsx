@@ -8,6 +8,8 @@ const Sidebar: React.FC = () => {
     const { catalogContext, goToStep } = useQuoteProcess();
     const { activeQuoteFull } = catalogContext;
 
+    console.log("Sidebar data:", activeQuoteFull);
+
     if (!activeQuoteFull) {
         return (
             <aside className="w-80 bg-slate-50 border-r border-slate-200 flex flex-col h-full p-6">
@@ -15,61 +17,76 @@ const Sidebar: React.FC = () => {
             </aside>
         );
     }
-    
-    // In a real app with full product data, we'd look up names. Using IDs for now for mock.
-    const getProductName = (productId: number): string => {
-        // This is a placeholder. Real app would fetch product details or have them available.
-        // For the mock, we can try to find it in the 'apiClient's product list if needed, or just use ID.
-        // For simplicity with current mock structure:
-        return `Product ID ${productId}`; 
-    };
 
     const product_entries = activeQuoteFull.product_entries || [];
     const mainProduct = product_entries.find(e => e.role === ProductRole.MAIN);
     const secondaryProduct = product_entries.find(e => e.role === ProductRole.SECONDARY);
     const additionalProducts = product_entries.filter(e => e.role === ProductRole.ADDITIONAL);
 
+    // Helper to render product entry details
+    const renderProductEntry = (entry: any) => {
+        const selectedOptions = entry.variation_groups?.flatMap((g: any) => g.options.filter((o: any) => o.is_selected)) || [];
+
+        return (
+            <div className="flex items-start gap-3 p-2 rounded-lg bg-white shadow-sm border border-slate-100 mb-2">
+                <img
+                    src={entry.product_image_url || MOCKUP_DEFAULT_IMAGE}
+                    alt={entry.product_name || 'Product'}
+                    className="w-12 h-12 object-cover rounded-md border border-slate-200"
+                />
+                <div className="flex-1 min-w-0">
+                    <div className="font-medium text-xs text-slate-700 truncate" title={entry.product_name}>
+                        {entry.quantity_of_product_units}, {entry.product_unit_name || 'unit'} of {entry.product_name || `Product #${entry.product_id}`}
+                    </div>
+                    {selectedOptions.length > 0 && (
+                        <div className="mt-1 flex flex-wrap gap-1">
+                            {selectedOptions.map((v: any) => (
+                                <span key={v.id} className="bg-green-100 text-green-800 text-[11px] font-medium px-2 py-0.5 rounded-full">
+                                    {v.name}
+                                </span>
+                            ))}
+                        </div>
+                    )}
+                    {entry.notes && <div className="mt-1 text-xs text-slate-400 italic">{entry.notes}</div>}
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <aside className="w-80 bg-slate-50 border-r border-slate-200 flex flex-col h-full">
+        <aside className="resize-x overflow-auto min-w-56 max-w-xl w-80 bg-slate-50 border-r border-slate-200 flex flex-col h-full">
             <div className="p-6 border-b border-slate-200">
-                <h2 className="text-lg font-bold text-slate-800 truncate" title={activeQuoteFull.name || "Unnamed Quote"}>
-                    {activeQuoteFull.name || "Unnamed Quote"}
+                <h2 className="text-lg font-bold text-slate-800 truncate" title={activeQuoteFull.name || 'Unnamed Quote'}>
+                    {activeQuoteFull.name || 'Unnamed Quote'}
                 </h2>
-                <p className="text-sm text-slate-500 truncate" title={activeQuoteFull.description || ""}>
-                    {activeQuoteFull.description || "No description."}
+                <p className="text-sm text-slate-500 truncate" title={activeQuoteFull.description || ''}>
+                    {activeQuoteFull.description || 'No description.'}
                 </p>
             </div>
             <div className="flex-1 p-6 overflow-y-auto">
-                <h3 className="font-semibold text-slate-700 mb-4">Project Items</h3>
-                <ul className="space-y-4 text-sm">
-                    <li>
-                        <span className={`font-semibold block ${mainProduct ? 'text-slate-600' : 'text-slate-400'}`}>Main Product</span>
-                        {mainProduct ? (
-                             <span className="text-slate-500">{activeQuoteFull.product_entries.find(pe => pe.id === mainProduct.id)?.product_id ? `Configured Item` : `Select Item`}</span>
-                        ) : (
-                            <span className="text-slate-400 italic">Not selected</span>
-                        )}
-                    </li>
-                    <li>
-                        <span className={`font-semibold block ${secondaryProduct ? 'text-slate-600' : 'text-slate-400'}`}>Secondary Product</span>
-                         {secondaryProduct ? (
-                             <span className="text-slate-500">{activeQuoteFull.product_entries.find(pe => pe.id === secondaryProduct.id)?.product_id ? `Configured Item` : `Select Item`}</span>
-                        ) : (
-                            <span className="text-slate-400 italic">Not selected</span>
-                        )}
-                    </li>
-                    {additionalProducts.length > 0 && (
-                        <li>
-                            <span className="font-semibold text-slate-600 block">Additional Items</span>
-                            <ul className="list-disc list-inside mt-1 text-slate-500">
-                                {additionalProducts.map(p => <li key={p.id}>{getProductName(p.product_id)}</li>)}
-                            </ul>
-                        </li>
-                    )}
-                </ul>
+                <h3 className="font-semibold text-slate-700 mb-4 flex items-center gap-2">
+                    <span>Project Items</span>
+                    <span className="ml-auto bg-blue-100 text-blue-700 text-xs px-2 py-0.5 rounded-full font-medium">{product_entries.length} total</span>
+                </h3>
+                <div className="mb-4">
+                    <div className="font-semibold text-slate-600 mb-1">Main Product</div>
+                    {mainProduct ? renderProductEntry(mainProduct) : <div className="text-slate-400 italic">Not selected</div>}
+                </div>
+                <div className="mb-4">
+                    <div className="font-semibold text-slate-600 mb-1">Secondary Product</div>
+                    {secondaryProduct ? renderProductEntry(secondaryProduct) : <div className="text-slate-400 italic">Not selected</div>}
+                </div>
+                {additionalProducts.length > 0 && (
+                    <div className="mb-2">
+                        <div className="font-semibold text-slate-600 mb-1">Additional Items <span className="ml-1 bg-slate-200 text-slate-700 text-xs px-2 py-0.5 rounded-full font-medium">{additionalProducts.length}</span></div>
+                        {additionalProducts.map((p, idx) => (
+                            <div key={p.id || idx}>{renderProductEntry(p)}</div>
+                        ))}
+                    </div>
+                )}
             </div>
             <div className="p-6 border-t border-slate-200">
-                <button 
+                <button
                     onClick={() => goToStep('review')}
                     className="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                 >

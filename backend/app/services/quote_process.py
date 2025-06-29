@@ -342,14 +342,6 @@ class QuoteProcessService:
         if not quote:
             raise ValueError(f"Quote with id {quote_id} not found.")
 
-        # Business Rule: Enforce only one MAIN product.
-        if role == ProductRole.MAIN:
-            statement = select(QuoteProductEntry).where(QuoteProductEntry.quote_id == quote_id, QuoteProductEntry.role == ProductRole.MAIN)
-            existing_main = self.session.exec(statement).first()
-            if existing_main:
-                logger.warning(f"Quote {quote_id} already has a MAIN product (Entry ID: {existing_main.id}). Cannot add another.")
-                raise ValueError("A main product already exists for this quote. Please remove it before adding a new one.")
-
         try:
             new_entry = QuoteProductEntry(
                 quote_id=quote_id,

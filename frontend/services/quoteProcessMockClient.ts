@@ -249,35 +249,41 @@ export const quoteProcessMockApi = {
         return entry;
     },
 
-    setQuoteProductVariationOption: async (quoteId: number, productEntryId: number, variationGroupId: number, variationOptionId: number): Promise<MockQuoteProductEntry> => {
+    setQuoteProductVariationOption: async (productEntryId: number, variationOptionId: number): Promise<MockQuoteProductEntry> => {
         await delay(150);
-        const quote = mockDb.active_quotes[quoteId];
+        
+
+        // Find the quote that contains this entry
+        const quote = Object.values(mockDb.active_quotes).find(q => q.product_entries.some(e => e.id === productEntryId));
         if (!quote) throw new Error("Quote not found");
         const entry = quote.product_entries.find(e => e.id === productEntryId);
         if (!entry) throw new Error("Entry not found");
-
+ 
         const productDetails = mockDb.product_details[entry.product_id];
         if (!productDetails) throw new Error("Product details not found");
 
-        const groupDefinition = productDetails.variation_groups.find(g => g.id === variationGroupId);
-        if(!groupDefinition) throw new Error("Variation group definition not found");
+        const variationGroup = productDetails.variation_groups.find(g => 
+            g.options.some(o => o.id === variationOptionId)
+        );
+        if (!variationGroup) throw new Error("Variation group not found for option");
+        const variationGroupId = variationGroup.id;
 
 
         // let existingSelectionForGroup = entry.selected_variations.find(sv => sv.group_id === variationGroupId); // Not directly used below
 
-        if (groupDefinition.selection_type === 'single_choice') {
+        if (variationGroup.selection_type === 'single_choice') {
             // Remove any existing selection for this group, then add the new one.
             entry.selected_variations = entry.selected_variations.filter(sv => sv.group_id !== variationGroupId);
             entry.selected_variations.push({ group_id: variationGroupId, option_id: variationOptionId });
-        } else if (groupDefinition.selection_type === 'multi_choice') {
+        } else if (variationGroup.selection_type === 'multi_choice') {
             // For multi-choice, toggle. This wasn't in mockup HTML but is typical.
             // Mockup HTML logic implies single choice for all variations. We follow that.
             // If mockup logic was: if option selected, it IS the selected one for the group.
              entry.selected_variations = entry.selected_variations.filter(sv => sv.group_id !== variationGroupId);
              entry.selected_variations.push({ group_id: variationGroupId, option_id: variationOptionId });
         }
-        
-        mockDb.active_quotes[quoteId] = {...quote};
+
+        mockDb.active_quotes[quote.id] = {...quote};
         return entry;
     },
 
