@@ -99,6 +99,7 @@ class MaterializedProductEntry(BaseModel):
     quote_id: int
     product_id: int
     product_name: str
+    product_unit: str
     role: Optional[ProductRole]
     quantity_of_product_units: Decimal
     notes: Optional[str]
@@ -171,6 +172,7 @@ class QuoteProcessService:
             quote_id=entry.quote_id,
             product_id=entry.product_id,
             product_name=product.name,
+            product_unit=product.product_unit_type.name,
             role=entry.role,
             quantity_of_product_units=entry.quantity_of_product_units,
             notes=entry.notes,

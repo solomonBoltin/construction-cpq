@@ -17,7 +17,6 @@ const QuoteListPage: React.FC = () => {
     isModalOpen,
     dispatch
   } = useQuoteProcess();
-
   const [newQuoteName, setNewQuoteName] = useState('');
   const [newQuoteDescription, setNewQuoteDescription] = useState('');
   const navigate = useNavigate();
@@ -126,4 +125,3 @@ const QuoteListPage: React.FC = () => {
 };
 
 export default QuoteListPage;
-

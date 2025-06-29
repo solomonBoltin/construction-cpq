@@ -2,6 +2,7 @@ import React, { useCallback } from 'react';
 import { useQuoteProcess } from '../../../contexts/QuoteProcessContext';
 import { MaterializedProductEntry, ProductRole } from '../../../types';
 import LoadingSpinner from '../../common/LoadingSpinner';
+import { shortUnitType } from '../../../utils/units';
 
 interface ProductConfiguratorStepProps {
     role: ProductRole.MAIN | ProductRole.SECONDARY;
@@ -65,7 +66,7 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-6">
                     <div>
                         <label htmlFor={`quantity-${productEntry.id}`} className="block text-sm font-medium text-slate-700 mb-1">
-                            Quantity {productEntry.role === ProductRole.MAIN ? '(ft)' : '(items)'}
+                            Quantity ({shortUnitType(productEntry.product_unit)})
                         </label>
                         <input 
                             type="number" 

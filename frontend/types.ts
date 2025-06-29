@@ -198,25 +198,17 @@ export interface MaterializedProductEntry {
     quote_id: number;
     product_id: number;
     product_name: string;
+    product_unit: string; // Added field
+    product_image_url?: string;
     role?: ProductRole | null;
     quantity_of_product_units: number; // Using number for UI, was Decimal in backend
     notes?: string | null;
     variation_groups: VariationGroupView[];
 }
 
-// For mock data to represent QuoteProductEntry from frontend_mockup.html more closely
-export interface MockQuoteProductEntry extends QuoteProductEntry {
-    // Mock data often has richer details for UI simulation
-    product_name: string;
-    product_image_url?: string;
-    product_unit_name: string;
-    // selected_variations is simplified in mock from the backend's relational model
-    selected_variations: MockSelectedVariation[];
-    notes?: string; // Allow notes to be optional to align with base type
-}
-
-export interface MockFullQuote extends QuotePreview {
-    product_entries: MockQuoteProductEntry[];
+// This will replace MockFullQuote
+export interface FullQuote extends QuotePreview {
+    product_entries: MaterializedProductEntry[];
 }
 
 
@@ -235,5 +227,5 @@ export type CatalogStepKey =
 export interface CatalogContextState {
     selectedCategoryName: string | null; // For main product
     // This will hold the "materialized" version of the active quote
-    activeQuoteFull?: MockFullQuote | null; 
+    activeQuoteFull?: FullQuote | null; 
 }

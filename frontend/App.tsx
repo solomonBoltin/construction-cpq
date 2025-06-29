@@ -1,23 +1,20 @@
-
 import React from 'react';
-import { QuoteProcessProvider, useQuoteProcess } from './contexts/QuoteProcessContext';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { QuoteProcessProvider } from './contexts/QuoteProcessContext';
 import QuoteListPage from './components/quote_list/QuoteListPage';
-import CatalogPage from './components/catalog/CatalogPage';
-
-const AppContent: React.FC = () => {
-  const { currentView } = useQuoteProcess();
-
-  if (currentView === 'catalog') {
-    return <CatalogPage />;
-  }
-  return <QuoteListPage />;
-};
+import QuoteCatalogRoute from './components/QuoteCatalogRoute';
 
 const App: React.FC = () => {
   return (
-    <QuoteProcessProvider>
-      <AppContent />
-    </QuoteProcessProvider>
+    <BrowserRouter>
+      <QuoteProcessProvider>
+        <Routes>
+          <Route path="/" element={<QuoteListPage />} />
+          <Route path="/quote/:id" element={<QuoteCatalogRoute />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </QuoteProcessProvider>
+    </BrowserRouter>
   );
 };
 

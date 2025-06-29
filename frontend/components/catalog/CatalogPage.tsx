@@ -1,6 +1,6 @@
-
 import React, { useEffect } from 'react';
 import { useQuoteProcess } from '../../contexts/QuoteProcessContext';
+import { useNavigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Stepper from './Stepper';
 import StepContentRenderer from './StepContentRenderer';
@@ -8,7 +8,8 @@ import ChevronLeftIcon from '../icons/ChevronLeftIcon';
 import LoadingSpinner from '../common/LoadingSpinner';
 
 const CatalogPage: React.FC = () => {
-    const { dispatch, activeQuoteId, catalogContext } = useQuoteProcess();
+    const { activeQuoteId, catalogContext } = useQuoteProcess();
+    const navigate = useNavigate();
 
     useEffect(() => {
         // This ensures that if catalog page is loaded directly (e.g. refresh)
@@ -32,7 +33,7 @@ const CatalogPage: React.FC = () => {
                  <LoadingSpinner />
                 <p className="mt-4 text-slate-600">Loading quote details...</p>
                  <button 
-                    onClick={() => dispatch({ type: 'SET_VIEW', payload: 'quote_list' })}
+                    onClick={() => navigate('/')} // Use router navigation
                     className="mt-6 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
                 >
                     <ChevronLeftIcon />
@@ -48,7 +49,7 @@ const CatalogPage: React.FC = () => {
             <main className="flex-1 flex flex-col overflow-hidden">
                 <header className="p-4 border-b border-slate-200 bg-white z-10">
                     <button 
-                        onClick={() => dispatch({ type: 'SET_VIEW', payload: 'quote_list' })}
+                        onClick={() => navigate('/')} // Use router navigation
                         className="text-sm text-slate-600 hover:text-blue-600 flex items-center gap-1"
                     >
                         <ChevronLeftIcon />

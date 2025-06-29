@@ -1,22 +1,18 @@
 import React, { createContext, useContext, useReducer, useCallback } from 'react';
 import { 
-    AppView, 
     CatalogStepKey, 
     CatalogContextState, 
-    MockFullQuote, 
+    FullQuote, 
     ProductRole,
-    MockQuoteProductEntry,
-    // MaterializedProductEntry, // Not directly used in this file for action payloads/state shaping
+    MaterializedProductEntry,
     QuotePreview,
     QuoteType, // Added import
-    // Quote, // Not directly used in this file for action payloads/state shaping
     CalculatedQuote
 } from '../types';
 import { apiClient } from '../services/api'; 
-// import { Steps, AddonCategoryType, GateCategoryType, MainProductCategoryType } from '../constants'; // Not used in this file
+import { useNavigate } from 'react-router-dom';
 
 interface QuoteProcessState {
-    currentView: AppView;
     activeQuoteId: number | null;
     activeStep: CatalogStepKey;
     catalogContext: Omit<CatalogContextState, 'activeProductEntryId'>;
@@ -28,7 +24,6 @@ interface QuoteProcessState {
 }
 
 const initialState: QuoteProcessState = {
-    currentView: 'quote_list',
     activeQuoteId: null,
     activeStep: 'choose_category',
     catalogContext: {
@@ -43,7 +38,6 @@ const initialState: QuoteProcessState = {
 };
 
 type Action =
-    | { type: 'SET_VIEW'; payload: AppView }
     | { type: 'START_LOADING' }
     | { type: 'END_LOADING' }
     | { type: 'SET_ERROR'; payload: string | null }
@@ -51,18 +45,16 @@ type Action =
     | { type: 'SET_ACTIVE_QUOTE_ID'; payload: number | null }
     | { type: 'SET_ACTIVE_STEP'; payload: CatalogStepKey }
     | { type: 'SET_SELECTED_CATEGORY'; payload: string | null }
-    | { type: 'SET_ACTIVE_QUOTE_FULL'; payload: MockFullQuote | null }
-    | { type: 'UPDATE_ACTIVE_QUOTE_ENTRY'; payload: MockQuoteProductEntry }
+    | { type: 'SET_ACTIVE_QUOTE_FULL'; payload: FullQuote | null }
+    | { type: 'UPDATE_ACTIVE_QUOTE_ENTRY'; payload: MaterializedProductEntry }
     | { type: 'REMOVE_ACTIVE_QUOTE_ENTRY'; payload: number } // entryId
-    | { type: 'ADD_ACTIVE_QUOTE_ENTRY'; payload: MockQuoteProductEntry }
+    | { type: 'ADD_ACTIVE_QUOTE_ENTRY'; payload: MaterializedProductEntry }
     | { type: 'TOGGLE_MODAL'; payload: boolean }
     | { type: 'SET_CALCULATED_QUOTE'; payload: CalculatedQuote | null};
 
 
 const reducer = (state: QuoteProcessState, action: Action): QuoteProcessState => {
     switch (action.type) {
-        case 'SET_VIEW':
-            return { ...state, currentView: action.payload, error: null };
         case 'START_LOADING':
             return { ...state, isLoading: true, error: null };
         case 'END_LOADING':
@@ -139,7 +131,7 @@ const reducer = (state: QuoteProcessState, action: Action): QuoteProcessState =>
 interface QuoteProcessContextType extends QuoteProcessState {
     dispatch: React.Dispatch<Action>;
     fetchQuotes: () => Promise<void>;
-    createNewQuote: (name: string, description: string, type: QuoteType) => Promise<void>;
+    createNewQuote: (name: string, description: string, type: QuoteType) => Promise<number | undefined>;
     selectQuoteForEditing: (quoteId: number) => Promise<void>;
     selectCategory: (categoryName: string) => void;
     selectProduct: (productId: number, role: ProductRole) => Promise<void>;
@@ -154,6 +146,7 @@ interface QuoteProcessContextType extends QuoteProcessState {
 const QuoteProcessContext = createContext<QuoteProcessContextType | undefined>(undefined);
 
 export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const navigate = useNavigate();
     const [state, dispatch] = useReducer(reducer, initialState);
     const [showMainProductModal, setShowMainProductModal] = React.useState(false);
     const [pendingStep, setPendingStep] = React.useState<CatalogStepKey | null>(null);
@@ -178,10 +171,8 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
             const activeQuoteData = await apiClient.getQuoteForEditing(quoteId);
             if (activeQuoteData) {
                 dispatch({ type: 'SET_ACTIVE_QUOTE_ID', payload: quoteId });
-                dispatch({ type: 'SET_ACTIVE_QUOTE_FULL', payload: activeQuoteData as MockFullQuote });
-                dispatch({ type: 'SET_VIEW', payload: 'catalog' });
-                dispatch({ type: 'SET_ACTIVE_STEP', payload: 'choose_category' });
-                dispatch({ type: 'SET_SELECTED_CATEGORY', payload: null }); // Reset category selection
+                dispatch({ type: 'SET_ACTIVE_QUOTE_FULL', payload: activeQuoteData as FullQuote });
+                // No need to dispatch SET_VIEW here, navigation will be handled by the router
             } else {
                 dispatch({type: 'SET_ERROR', payload: 'Failed to load quote for editing.'});
             }
@@ -196,18 +187,16 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
         dispatch({ type: 'START_LOADING' });
         try {
             const newQuote = await apiClient.createQuote(name, type, description);
-            // Fetch fresh list or add to existing
-            await fetchQuotes(); 
+            await fetchQuotes();
             dispatch({ type: 'TOGGLE_MODAL', payload: false });
-            // Now select the quote for editing to transition views
-            await selectQuoteForEditing(newQuote.id);
-
+            navigate(`/quote/${newQuote.id}`);
+            return newQuote.id;
         } catch (err) {
             dispatch({ type: 'SET_ERROR', payload: (err as Error).message });
         } finally {
             dispatch({ type: 'END_LOADING' });
         }
-    }, [fetchQuotes, selectQuoteForEditing]);
+    }, [fetchQuotes, navigate]);
 
     const selectCategory = useCallback((categoryName: string) => {
         dispatch({ type: 'SET_SELECTED_CATEGORY', payload: categoryName });
@@ -227,9 +216,9 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
         }
         dispatch({ type: 'START_LOADING' });
         try {
-            // @ts-ignore - Mock client takes quantity and returns MockQuoteProductEntry
+            // @ts-ignore - Mock client takes quantity and returns MaterializedProductEntry
             const newEntry = await apiClient.addQuoteProductEntry(state.activeQuoteId, productId, 1, role); // Default quantity 1
-            dispatch({ type: 'ADD_ACTIVE_QUOTE_ENTRY', payload: newEntry as MockQuoteProductEntry});
+            dispatch({ type: 'ADD_ACTIVE_QUOTE_ENTRY', payload: newEntry as MaterializedProductEntry});
             const nextStep = role === ProductRole.MAIN ? 'configure_main' : 'configure_secondary';
             dispatch({ type: 'SET_ACTIVE_STEP', payload: nextStep });
         } catch (err) {
@@ -245,7 +234,7 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
         try {
             // @ts-ignore - Mock client
             const updatedEntry = await apiClient.updateQuoteProductEntry(entryId, { quantity });
-            dispatch({ type: 'UPDATE_ACTIVE_QUOTE_ENTRY', payload: updatedEntry as MockQuoteProductEntry });
+            dispatch({ type: 'UPDATE_ACTIVE_QUOTE_ENTRY', payload: updatedEntry as MaterializedProductEntry });
         } catch (err) {
             console.error("Failed to update quantity:", err);
             // Optionally dispatch SET_ERROR
@@ -259,7 +248,7 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
             // @ts-ignore - Mock client
             console.log("Updating variation for entryId:", entryId, "groupId:", groupId, "optionId:", optionId);
             const updatedEntry = await apiClient.setQuoteProductVariationOption(entryId, optionId);
-            dispatch({ type: 'UPDATE_ACTIVE_QUOTE_ENTRY', payload: updatedEntry as MockQuoteProductEntry });
+            dispatch({ type: 'UPDATE_ACTIVE_QUOTE_ENTRY', payload: updatedEntry as MaterializedProductEntry });
             // reload display data if needed
             
         } catch (err) {
@@ -281,7 +270,7 @@ export const QuoteProcessProvider: React.FC<{ children: React.ReactNode }> = ({ 
             } else {
                  // @ts-ignore - Mock client
                 const newEntry = await apiClient.addQuoteProductEntry(state.activeQuoteId, productId, 1, ProductRole.ADDITIONAL);
-                dispatch({type: 'ADD_ACTIVE_QUOTE_ENTRY', payload: newEntry as MockQuoteProductEntry});
+                dispatch({type: 'ADD_ACTIVE_QUOTE_ENTRY', payload: newEntry as MaterializedProductEntry});
             }
         } catch (err) {
             dispatch({ type: 'SET_ERROR', payload: (err as Error).message });

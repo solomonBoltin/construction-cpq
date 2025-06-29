@@ -6,12 +6,8 @@ import {
     Quote,
     QuoteType,
     ProductRole,
-    // CatalogStepKey, // Not used directly in this file
-    MockFullQuote,
-    // Product, // Not used directly in this file
-    MockQuoteProductEntry,
+    FullQuote,
     VariationGroupView,
-    VariationOptionView,
     QuoteStatus,
     CalculatedQuote
 } from '../types';
@@ -63,7 +59,7 @@ const mockDb = {
         501: { variation_groups: [ { id: 1008, name: "Length to Remove (ft)", product_id: 501, selection_type: "single_choice", is_required: true, options: [] } ] },
         502: { variation_groups: [ { id: 1009, name: "Length of Hard Dig (ft)", product_id: 502, selection_type: "single_choice", is_required: true, options: [] } ] },
     } as Record<number, { variation_groups: VariationGroupView[] }>,
-    active_quotes: {} as Record<number, MockFullQuote>, // Stores full quote data being worked on
+    active_quotes: {} as Record<number, FullQuote>, // Stores full quote data being worked on
     calculated_quotes: {} as Record<number, CalculatedQuote>
 };
 
@@ -103,7 +99,7 @@ export const quoteProcessMockApi = {
         };
         mockDb.quotes.push(newQuotePreview);
 
-        const newFullQuote: MockFullQuote = {
+        const newFullQuote: FullQuote = {
             ...newQuotePreview,
             product_entries: []
         };
@@ -120,7 +116,7 @@ export const quoteProcessMockApi = {
     },
     
     // This is a helper for the frontend to get the "active working copy"
-    getQuoteForEditing: async (id: number): Promise<MockFullQuote | null> => {
+    getQuoteForEditing: async (id: number): Promise<FullQuote | null> => {
         await delay(100);
         if (!mockDb.active_quotes[id]) {
             const quoteBase = mockDb.quotes.find(q => q.id === id);
@@ -163,38 +159,14 @@ export const quoteProcessMockApi = {
         await delay(150);
 
         // Find the entry in all active quotes
-        const entry = Object.values(mockDb.active_quotes).flatMap(q => q.product_entries).find(e => e.id === productEntryId);
+        const allEntries = Object.values(mockDb.active_quotes).flatMap(q => q.product_entries);
+        const entry = allEntries.find(e => e.id === productEntryId);
         if (!entry) return null; // Not found
 
-        const product = mockDb.products.find(p => p.id === entry.product_id);
-        if (!product) return null;
-
-        let details = JSON.parse(JSON.stringify(mockDb.product_details[entry.product_id] || { variation_groups: [] }));
-
-        // Sync selections from entry.selected_variations
-        details.variation_groups.forEach((group: VariationGroupView) => {
-            group.options.forEach((opt: VariationOptionView) => {
-                const isSelected = entry.selected_variations.some(sv => sv.group_id === group.id && sv.option_id === opt.id);
-                opt.is_selected = isSelected;
-
-                // Ensure options have variation_group_id (added during mockDb init)
-                 if (!opt.variation_group_id) opt.variation_group_id = group.id;
-            });
-        });
-        
-        return {
-            id: entry.id,
-            quote_id: entry.quote_id,
-            product_id: entry.product_id,
-            product_name: product.name,
-            role: entry.role as ProductRole,
-            quantity_of_product_units: entry.quantity_of_product_units, // Use renamed field
-            notes: entry.notes,
-            variation_groups: details.variation_groups
-        };
+        return JSON.parse(JSON.stringify(entry)); // Return a copy
     },
 
-    addQuoteProductEntry: async (quoteId: number, productId: number, quantity: number, role: ProductRole): Promise<MockQuoteProductEntry> => {
+    addQuoteProductEntry: async (quoteId: number, productId: number, quantity: number, role: ProductRole): Promise<MaterializedProductEntry> => {
         await delay(250);
         const quote = mockDb.active_quotes[quoteId];
         if (!quote) throw new Error("Quote not found");
@@ -202,24 +174,32 @@ export const quoteProcessMockApi = {
         const product = mockDb.products.find(p => p.id === productId);
         if (!product) throw new Error("Product not found");
 
+        const productDetails = mockDb.product_details[productId];
+        if (!productDetails) throw new Error("Product details not found");
+
         if (role === ProductRole.MAIN || role === ProductRole.SECONDARY) {
             const existingIndex = quote.product_entries.findIndex(e => e.role === role);
             if (existingIndex > -1) {
+                // In a real scenario, you might throw an error or handle replacement.
+                // Here we'll just log it and let the context logic handle user feedback.
+                console.warn(`Replacing existing ${role} product.`);
                 quote.product_entries.splice(existingIndex, 1);
             }
         }
         
-        const newEntry: MockQuoteProductEntry = {
+        const newEntry: MaterializedProductEntry = {
             id: Date.now(),
             quote_id: quoteId,
             product_id: productId,
+            product_name: product.name,
+            product_image_url: product.image_url || undefined,
+            product_unit: 'unit', // Assuming 'unit' for now
             role: role,
-            quantity_of_product_units: quantity, // Use renamed field
+            quantity_of_product_units: quantity,
             notes: "",
-            selected_variations: [],
-            product_name: '',
-            product_unit_name: ''
+            variation_groups: JSON.parse(JSON.stringify(productDetails.variation_groups)), // Deep copy
         };
+
         quote.product_entries.push(newEntry);
         mockDb.active_quotes[quoteId] = {...quote}; // Ensure update
         return newEntry;
@@ -233,7 +213,7 @@ export const quoteProcessMockApi = {
         mockDb.active_quotes[quoteId] = {...quote};
     },
     
-    updateQuoteProductEntry: async (productEntryId: number, data: { quantity?: number; notes?: string }): Promise<MockQuoteProductEntry> => {
+    updateQuoteProductEntry: async (productEntryId: number, data: { quantity?: number; notes?: string }): Promise<MaterializedProductEntry> => {
         await delay(150);
         // Find the quote that contains this entry
         const quote = Object.values(mockDb.active_quotes).find(q => q.product_entries.some(e => e.id === productEntryId));
@@ -241,46 +221,35 @@ export const quoteProcessMockApi = {
         const entry = quote.product_entries.find(e => e.id === productEntryId);
         if (!entry) throw new Error("Entry not found");
     
-
-
-        if (data.quantity !== undefined) entry.quantity_of_product_units = data.quantity; // Use renamed field
+        if (data.quantity !== undefined) entry.quantity_of_product_units = data.quantity;
         if (data.notes !== undefined) entry.notes = data.notes;
         mockDb.active_quotes[quote.id] = {...quote};
         return entry;
     },
 
-    setQuoteProductVariationOption: async (productEntryId: number, variationOptionId: number): Promise<MockQuoteProductEntry> => {
+    setQuoteProductVariationOption: async (productEntryId: number, variationOptionId: number): Promise<MaterializedProductEntry> => {
         await delay(150);
         
-
         // Find the quote that contains this entry
         const quote = Object.values(mockDb.active_quotes).find(q => q.product_entries.some(e => e.id === productEntryId));
         if (!quote) throw new Error("Quote not found");
         const entry = quote.product_entries.find(e => e.id === productEntryId);
         if (!entry) throw new Error("Entry not found");
  
-        const productDetails = mockDb.product_details[entry.product_id];
-        if (!productDetails) throw new Error("Product details not found");
-
-        const variationGroup = productDetails.variation_groups.find(g => 
+        const variationGroup = entry.variation_groups.find(g => 
             g.options.some(o => o.id === variationOptionId)
         );
         if (!variationGroup) throw new Error("Variation group not found for option");
-        const variationGroupId = variationGroup.id;
-
-
-        // let existingSelectionForGroup = entry.selected_variations.find(sv => sv.group_id === variationGroupId); // Not directly used below
 
         if (variationGroup.selection_type === 'single_choice') {
-            // Remove any existing selection for this group, then add the new one.
-            entry.selected_variations = entry.selected_variations.filter(sv => sv.group_id !== variationGroupId);
-            entry.selected_variations.push({ group_id: variationGroupId, option_id: variationOptionId });
-        } else if (variationGroup.selection_type === 'multi_choice') {
-            // For multi-choice, toggle. This wasn't in mockup HTML but is typical.
-            // Mockup HTML logic implies single choice for all variations. We follow that.
-            // If mockup logic was: if option selected, it IS the selected one for the group.
-             entry.selected_variations = entry.selected_variations.filter(sv => sv.group_id !== variationGroupId);
-             entry.selected_variations.push({ group_id: variationGroupId, option_id: variationOptionId });
+            // Deselect all options in the group first
+            variationGroup.options.forEach(opt => opt.is_selected = false);
+        }
+
+        // Select the new option
+        const optionToSelect = variationGroup.options.find(o => o.id === variationOptionId);
+        if (optionToSelect) {
+            optionToSelect.is_selected = true;
         }
 
         mockDb.active_quotes[quote.id] = {...quote};

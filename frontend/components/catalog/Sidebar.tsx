@@ -1,8 +1,9 @@
 import React from 'react';
 import { useQuoteProcess } from '../../contexts/QuoteProcessContext';
-import { ProductRole } from '../../types';
+import { MaterializedProductEntry, ProductRole } from '../../types';
 import ChevronRightIcon from '../icons/ChevronRightIcon';
 import { MOCKUP_DEFAULT_IMAGE } from '../../constants';
+import { shortUnitType } from '@/utils/units';
 
 const Sidebar: React.FC = () => {
     const { catalogContext, goToStep } = useQuoteProcess();
@@ -24,7 +25,7 @@ const Sidebar: React.FC = () => {
     const additionalProducts = product_entries.filter(e => e.role === ProductRole.ADDITIONAL);
 
     // Helper to render product entry details
-    const renderProductEntry = (entry: any) => {
+    const renderProductEntry = (entry: MaterializedProductEntry) => {
         const selectedOptions = entry.variation_groups?.flatMap((g: any) => g.options.filter((o: any) => o.is_selected)) || [];
 
         return (
@@ -36,7 +37,7 @@ const Sidebar: React.FC = () => {
                 />
                 <div className="flex-1 min-w-0">
                     <div className="font-medium text-xs text-slate-700 truncate" title={entry.product_name}>
-                        {entry.quantity_of_product_units}, {entry.product_unit_name || 'unit'} of {entry.product_name || `Product #${entry.product_id}`}
+                        {entry.quantity_of_product_units} {shortUnitType(entry.product_unit)} of {entry.product_name || `Product #${entry.product_id}`}
                     </div>
                     {selectedOptions.length > 0 && (
                         <div className="mt-1 flex flex-wrap gap-1">
