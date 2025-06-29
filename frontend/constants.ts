@@ -2,7 +2,6 @@ import { CatalogStepKey } from './types';
 
 export const API_DOMAIN = "http://localhost:8000"; // From user plan
 export const API_BASE_URL = API_DOMAIN + "/api/v1"; // From user plan
-export const USE_MOCK_API = false; // Set to false to use the real API
 
 export const DEFAULT_QUOTE_CONFIG_ID = 1;
 
