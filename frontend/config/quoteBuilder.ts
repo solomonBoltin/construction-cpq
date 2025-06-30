@@ -8,6 +8,28 @@ import ProductConfiguratorStep from '../components/quote_builder/steps/ProductCo
 import AdditionalProductSelectorStep from '../components/quote_builder/steps/AdditionalProductSelectorStep';
 import ReviewStep from '../components/quote_builder/steps/ReviewStep';
 
+// Product role configuration for managing limits and confirmations
+export const PRODUCT_ROLE_CONFIG = {
+  [ProductRole.MAIN]: {
+    maxCount: 1,
+    requiresConfirmationToReplace: true,
+    confirmationMessage: 'You already have a main fence product selected. Would you like to replace it with this one?',
+  },
+  [ProductRole.SECONDARY]: {
+    maxCount: 1,
+    requiresConfirmationToReplace: true,
+    confirmationMessage: 'You already have a gate product selected. Would you like to replace it with this one?',
+  },
+  [ProductRole.ADDITIONAL]: {
+    maxCount: null, // No limit
+    requiresConfirmationToReplace: false,
+  },
+  [ProductRole.DEFAULT]: {
+    maxCount: null, // No limit
+    requiresConfirmationToReplace: false,
+  },
+} as const;
+
 interface StepConfig {
   key: QuoteBuilderStepKey;
   label: string;

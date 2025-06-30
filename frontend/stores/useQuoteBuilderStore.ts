@@ -21,14 +21,14 @@ interface QuoteBuilderStore {
   selectCategory: (name: string) => void;
   updateEntry: (entryId: number, updates: Partial<MaterializedProductEntry>) => void;
   addEntry: (entry: MaterializedProductEntry) => void;
-  removeEntry: (entryId: number) => void;
   setCalculatedQuote: (calculatedQuote: CalculatedQuote | null) => void;
   reset: () => void;
   initializeStep: () => void;
 
   // Async actions
-  loadQuote: (quoteId: number) => Promise<void>;
+  loadQuote: (quoteId: number, shouldInitializeStep?: boolean) => Promise<void>;
   selectProduct: (productId: number, role: string) => Promise<MaterializedProductEntry>;
+  removeEntry: (entryId: number) => Promise<void>;
   updateProductQuantity: (entryId: number, quantity: number) => Promise<void>;
   updateProductVariation: (entryId: number, groupId: number, optionId: number) => Promise<void>;
   calculateQuote: () => Promise<void>;
@@ -87,12 +87,6 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
       }
     }),
 
-    removeEntry: (entryId) => set((state) => {
-      if (state.quote?.product_entries) {
-        state.quote.product_entries = state.quote.product_entries.filter(e => e.id !== entryId);
-      }
-    }),
-
     setCalculatedQuote: (calculatedQuote) => set((state) => {
       state.calculatedQuote = calculatedQuote;
     }),
@@ -141,7 +135,7 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
     },
 
     // Async actions
-    loadQuote: async (quoteId) => {
+    loadQuote: async (quoteId, shouldInitializeStep=false) => {
       const { setLoading, setError, setQuote, initializeStep } = get();
       setLoading(true);
       setError(null);
@@ -163,7 +157,8 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
         }
 
         // Initialize the step based on quote data
-        initializeStep();
+        if (shouldInitializeStep) 
+          initializeStep();
       } catch (error) {
         setError(handleApiError(error));
       } finally {
@@ -229,6 +224,25 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
         setError(handleApiError(error));
       } finally {
         setLoading(false);
+      }
+    },
+
+    removeEntry: async (entryId) => {
+      const { quote, setError } = get();
+      if (!quote) return;
+
+      try {
+        await apiClient.deleteQuoteProductEntry(quote.id, entryId);
+        
+        // Remove from local state
+        set((state) => {
+          if (state.quote?.product_entries) {
+            state.quote.product_entries = state.quote.product_entries.filter(e => e.id !== entryId);
+          }
+        });
+      } catch (error) {
+        setError(handleApiError(error));
+        throw error;
       }
     },
   }))

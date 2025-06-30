@@ -20,7 +20,7 @@ const QuoteBuilderPage: React.FC = () => {
         if (id) {
             const quoteId = parseInt(id);
             if (!isNaN(quoteId)) {
-                loadQuote(quoteId);
+                loadQuote(quoteId, true);
             }
         }
 
