@@ -1,17 +1,14 @@
 import React from 'react';
-import { useQuoteProcess } from '../../contexts/QuoteProcessContext';
+import { useQuoteBuilderStore } from '../../stores/useQuoteBuilderStore';
 import { MaterializedProductEntry, ProductRole } from '../../types';
 import ChevronRightIcon from '../icons/ChevronRightIcon';
 import { MOCKUP_DEFAULT_IMAGE } from '../../constants';
-import { shortUnitType } from '@/utils/units';
+import { shortUnitType } from '../../utils/units';
 
 const Sidebar: React.FC = () => {
-    const { catalogContext, goToStep } = useQuoteProcess();
-    const { activeQuoteFull } = catalogContext;
+    const { quote, setStep } = useQuoteBuilderStore();
 
-    console.log("Sidebar data:", activeQuoteFull);
-
-    if (!activeQuoteFull) {
+    if (!quote) {
         return (
             <aside className="w-80 bg-slate-50 border-r border-slate-200 flex flex-col h-full p-6">
                 <p className="text-slate-500">Loading quote details...</p>
@@ -19,7 +16,7 @@ const Sidebar: React.FC = () => {
         );
     }
 
-    const product_entries = activeQuoteFull.product_entries || [];
+    const product_entries = quote.product_entries || [];
     const mainProduct = product_entries.find(e => e.role === ProductRole.MAIN);
     const secondaryProduct = product_entries.find(e => e.role === ProductRole.SECONDARY);
     const additionalProducts = product_entries.filter(e => e.role === ProductRole.ADDITIONAL);
@@ -57,11 +54,11 @@ const Sidebar: React.FC = () => {
     return (
         <aside className="resize-x overflow-auto min-w-56 max-w-xl w-80 bg-slate-50 border-r border-slate-200 flex flex-col h-full">
             <div className="p-6 border-b border-slate-200">
-                <h2 className="text-lg font-bold text-slate-800 truncate" title={activeQuoteFull.name || 'Unnamed Quote'}>
-                    {activeQuoteFull.name || 'Unnamed Quote'}
+                <h2 className="text-lg font-bold text-slate-800 truncate" title={quote.name || 'Unnamed Quote'}>
+                    {quote.name || 'Unnamed Quote'}
                 </h2>
-                <p className="text-sm text-slate-500 truncate" title={activeQuoteFull.description || ''}>
-                    {activeQuoteFull.description || 'No description.'}
+                <p className="text-sm text-slate-500 truncate" title={quote.description || ''}>
+                    {quote.description || 'No description.'}
                 </p>
             </div>
             <div className="flex-1 p-6 overflow-y-auto">
@@ -88,7 +85,7 @@ const Sidebar: React.FC = () => {
             </div>
             <div className="p-6 border-t border-slate-200">
                 <button
-                    onClick={() => goToStep('review')}
+                    onClick={() => setStep('review')}
                     className="w-full bg-green-600 text-white font-semibold py-3 px-4 rounded-lg shadow-md hover:bg-green-700 transition-colors flex items-center justify-center gap-2"
                 >
                     Review & Calculate

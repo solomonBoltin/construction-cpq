@@ -1,8 +1,10 @@
 import React, { useCallback } from 'react';
-import { useQuoteProcess } from '../../../contexts/QuoteProcessContext';
+import { useQuoteBuilderStore } from '../../../stores/useQuoteBuilderStore';
+import { useStepNavigation } from '../../../hooks/useStepNavigation';
 import { MaterializedProductEntry, ProductRole } from '../../../types';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import { shortUnitType } from '../../../utils/units';
+import { debounce } from '../../../utils/debounce'; 
 
 interface ProductConfiguratorStepProps {
     role: ProductRole.MAIN | ProductRole.SECONDARY;
@@ -10,19 +12,16 @@ interface ProductConfiguratorStepProps {
 
 const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role }) => {
     const { 
-        catalogContext, 
+        quote, 
         updateProductQuantity, 
         updateProductVariation, 
-        goToStep,
         isLoading: contextLoading,
         error: contextError,
-    } = useQuoteProcess();
-    const { activeQuoteFull } = catalogContext;
+    } = useQuoteBuilderStore();
+    const { goToStep } = useStepNavigation();
 
-
-    
     // Find the entry that matches the role directly from the context
-    const productEntry = activeQuoteFull?.product_entries.find(e => e.role === role) as MaterializedProductEntry | undefined;
+    const productEntry = quote?.product_entries.find(e => e.role === role) as MaterializedProductEntry | undefined;
 
     // Debounced quantity update
     const debouncedUpdateQuantity = useCallback(
@@ -55,8 +54,6 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
     if (!productEntry) {
          return <div className="text-slate-500 p-4">Select a product to configure its options.</div>;
     }
-
-    console.log("ProductConfiguratorStep - productEntry:", productEntry);
 
     return (
         <div className="fade-in">
@@ -115,13 +112,5 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
     );
 };
 
-// Simple debounce function
-function debounce<T extends (...args: any[]) => any>(func: T, delay: number): (...args: Parameters<T>) => void {
-  let timeoutId: ReturnType<typeof setTimeout>;
-  return function(this: ThisParameterType<T>, ...args: Parameters<T>) {
-    clearTimeout(timeoutId);
-    timeoutId = setTimeout(() => func.apply(this, args), delay);
-  };
-}
 
 export default ProductConfiguratorStep;

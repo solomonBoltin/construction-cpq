@@ -12,6 +12,7 @@ from app.services.quote_process import (
     CategoryPreview,
     ProductPreview,
     MaterializedProductEntry,
+    FullQuote,  # Import the FullQuote model
 )
 
 router = APIRouter(prefix="/quote-process", tags=["Quote Process"])
@@ -223,3 +224,16 @@ def update_quote_product_entry(
         raise e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+@router.get("/quotes/{quote_id}/full", response_model=FullQuote)
+def get_full_quote(
+    quote_id: int,
+    service: QuoteProcessService = Depends(get_quote_process_service),
+):
+    """Return quote with all materialised product-entries."""
+    try:
+        return service.get_full_quote(quote_id=quote_id)
+    except HTTPException as e:
+        raise e
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

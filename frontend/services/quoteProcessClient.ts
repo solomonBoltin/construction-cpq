@@ -6,7 +6,8 @@ import {
     Quote,
     QuoteType,
     ProductRole,
-    CalculatedQuote
+    CalculatedQuote,
+    FullQuote  // Add FullQuote import
 } from '../types';
 import { API_BASE_URL, DEFAULT_QUOTE_CONFIG_ID } from '../constants';
 
@@ -147,5 +148,10 @@ export const quoteProcessClient = {
         });
         const response = await fetch(`${API_BASE_URL}/quote-process/products/by-category-type/${encodeURIComponent(categoryType)}?${params.toString()}`, { headers });
         return handleResponse<ProductPreview[]>(response);
+    },
+
+    getQuoteFull: async (quoteId: number): Promise<FullQuote> => {
+        const response = await fetch(`${API_BASE_URL}/quote-process/quotes/${quoteId}/full`, { headers });
+        return handleResponse<FullQuote>(response);
     },
 };

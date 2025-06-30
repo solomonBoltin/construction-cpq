@@ -212,10 +212,7 @@ export interface FullQuote extends QuotePreview {
 }
 
 
-// Application specific states
-export type AppView = 'quote_list' | 'catalog';
-
-export type CatalogStepKey = 
+export type QuoteBuilderStepKey = 
   | 'choose_category' 
   | 'choose_main_product' 
   | 'configure_main' 
@@ -224,8 +221,3 @@ export type CatalogStepKey =
   | 'select_additional' 
   | 'review';
 
-export interface CatalogContextState {
-    selectedCategoryName: string | null; // For main product
-    // This will hold the "materialized" version of the active quote
-    activeQuoteFull?: FullQuote | null; 
-}

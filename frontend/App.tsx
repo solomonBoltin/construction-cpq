@@ -1,19 +1,16 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { QuoteProcessProvider } from './contexts/QuoteProcessContext';
-import QuoteListPage from './components/quote_list/QuoteListPage';
-import QuoteCatalogRoute from './components/QuoteCatalogRoute';
+import DashboardPage from './components/dashboard/DashboardPage';
+import QuoteBuilderPage from './components/quote_builder/QuoteBuilderPage';
 
 const App: React.FC = () => {
   return (
     <BrowserRouter>
-      <QuoteProcessProvider>
-        <Routes>
-          <Route path="/" element={<QuoteListPage />} />
-          <Route path="/quote/:id" element={<QuoteCatalogRoute />} />
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
-      </QuoteProcessProvider>
+      <Routes>
+        <Route path="/" element={<DashboardPage />} />
+        <Route path="/quote/:id" element={<QuoteBuilderPage />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
     </BrowserRouter>
   );
 };

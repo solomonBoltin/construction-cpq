@@ -105,6 +105,10 @@ class MaterializedProductEntry(BaseModel):
     notes: Optional[str]
     variation_groups: List[VariationGroupView]
 
+class FullQuote(QuotePreview):
+    """A complete quote with all materialized product entries for the UI."""
+    product_entries: List[MaterializedProductEntry] = []
+
 
 # ===================================================================================
 # Quote Process Service
@@ -535,4 +539,39 @@ class QuoteProcessService:
                 self.session.rollback()
                 raise HTTPException(status_code=500, detail="Failed to update product entry.")
         return self._materialize_product_entry(entry)
+
+    # === Quote with Materialized Products ===
+    
+    def get_full_quote(self, quote_id: int) -> FullQuote:
+        """
+        Returns the quote plus all materialised product entries so the
+        frontend can restore state after reload.
+        """
+        logger.info(f"Fetching full quote with materialized entries for quote ID: {quote_id}")
+        
+        quote = self.session.get(Quote, quote_id)
+        if not quote:
+            logger.warning(f"Quote ID {quote_id} not found for full quote retrieval.")
+            raise HTTPException(status_code=404, detail=f"Quote {quote_id} not found")
+
+        # Materialize all product entries for this quote
+        materialized_entries: List[MaterializedProductEntry] = []
+        for entry in quote.product_entries:
+            try:
+                materialized_entry = self._materialize_product_entry(entry)
+                materialized_entries.append(materialized_entry)
+            except Exception as e:
+                logger.error(f"Error materializing entry {entry.id}: {e}", exc_info=True)
+                # Continue with other entries if one fails
+
+        # Create and return the full quote with materialized entries
+        return FullQuote(
+            id=quote.id,
+            name=quote.name,
+            description=quote.description,
+            status=quote.status,
+            quote_type=quote.quote_type,
+            updated_at=quote.updated_at,
+            product_entries=materialized_entries,
+        )
 

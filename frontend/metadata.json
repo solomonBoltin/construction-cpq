@@ -1,5 +1,5 @@
 {
   "name": "Quote Management App V2",
-  "description": "A web application for creating and managing quotes for fence and deck projects, including product catalog, configuration, and cost estimation.",
+  "description": "A web application for creating and managing quotes for fence and deck projects, including  quote builder functionality.",
   "requestFramePermissions": []
 }

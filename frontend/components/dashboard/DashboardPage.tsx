@@ -1,25 +1,51 @@
 import React, { useEffect, useState } from 'react';
-import { useQuoteProcess } from '../../contexts/QuoteProcessContext';
+import { apiClient } from '../../services/api';
 import QuoteCard from './QuoteCard';
 import PlusIcon from '../icons/PlusIcon';
 import LoadingSpinner from '../common/LoadingSpinner';
 import Modal from '../common/Modal';
-import { QuoteType } from '../../types';
+import { QuoteType, QuotePreview } from '../../types';
 import { useNavigate } from 'react-router-dom';
 
-const QuoteListPage: React.FC = () => {
-  const { 
-    quotes, 
-    fetchQuotes, 
-    isLoading, 
-    error, 
-    createNewQuote,
-    isModalOpen,
-    dispatch
-  } = useQuoteProcess();
+const DashboardPage: React.FC = () => {
+  const [quotes, setQuotes] = useState<QuotePreview[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   const [newQuoteName, setNewQuoteName] = useState('');
   const [newQuoteDescription, setNewQuoteDescription] = useState('');
   const navigate = useNavigate();
+
+  const fetchQuotes = async () => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const quotesData = await apiClient.listQuotes(QuoteType.FENCE_PROJECT);
+      setQuotes(quotesData);
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const createNewQuote = async (name: string, description: string, type: QuoteType = QuoteType.FENCE_PROJECT) => {
+    setIsLoading(true);
+    setError(null);
+    try {
+      const newQuote = await apiClient.createQuote(name, type, description);
+      await fetchQuotes(); // Refresh the list
+      setIsModalOpen(false);
+      setNewQuoteName('');
+      setNewQuoteDescription('');
+      navigate(`/quote/${newQuote.id}`);
+      return newQuote.id;
+    } catch (err) {
+      setError((err as Error).message);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
     fetchQuotes();
@@ -49,7 +75,7 @@ const QuoteListPage: React.FC = () => {
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-3xl font-bold text-slate-800">Fence Projects</h1>
           <button
-            onClick={() => dispatch({type: 'TOGGLE_MODAL', payload: true})}
+            onClick={() => setIsModalOpen(true)}
             className="bg-blue-600 text-white font-semibold py-2 px-4 rounded-lg shadow-md hover:bg-blue-700 transition-colors flex items-center gap-2"
           >
             <PlusIcon />
@@ -73,7 +99,7 @@ const QuoteListPage: React.FC = () => {
 
       <Modal 
         isOpen={isModalOpen} 
-        onClose={() => dispatch({type: 'TOGGLE_MODAL', payload: false})}
+        onClose={() => setIsModalOpen(false)}
         title="Create New Project"
       >
         <div className="space-y-4">
@@ -105,7 +131,7 @@ const QuoteListPage: React.FC = () => {
           </div>
           <div className="flex justify-end gap-3">
             <button
-              onClick={() => dispatch({type: 'TOGGLE_MODAL', payload: false})}
+              onClick={() => setIsModalOpen(false)}
               className="px-4 py-2 text-sm font-medium text-slate-700 bg-slate-100 hover:bg-slate-200 rounded-md"
             >
               Cancel
@@ -124,4 +150,5 @@ const QuoteListPage: React.FC = () => {
   );
 };
 
-export default QuoteListPage;
+export default DashboardPage;
+

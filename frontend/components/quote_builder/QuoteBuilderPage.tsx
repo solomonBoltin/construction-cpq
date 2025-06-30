@@ -1,46 +1,64 @@
 import React, { useEffect } from 'react';
-import { useQuoteProcess } from '../../contexts/QuoteProcessContext';
-import { useNavigate } from 'react-router-dom';
+import { useQuoteBuilderStore } from '../../stores/useQuoteBuilderStore';
+import { useNavigate, useParams, Navigate } from 'react-router-dom';
 import Sidebar from './Sidebar';
 import Stepper from './Stepper';
 import StepContentRenderer from './StepContentRenderer';
 import ChevronLeftIcon from '../icons/ChevronLeftIcon';
 import LoadingSpinner from '../common/LoadingSpinner';
+import ErrorMessage from '../common/ErrorMessage';
 
-const CatalogPage: React.FC = () => {
-    const { activeQuoteId, catalogContext } = useQuoteProcess();
+const QuoteBuilderPage: React.FC = () => {
+    const { id } = useParams<{ id: string }>();
+    const { quote, loadQuote, isLoading, error, reset } = useQuoteBuilderStore();
     const navigate = useNavigate();
 
     useEffect(() => {
-        // This ensures that if catalog page is loaded directly (e.g. refresh)
-        // and activeQuoteFull is not set, we try to load it.
-        // selectQuoteForEditing handles this, called when a quote is selected from list.
-        // This is a safety net.
-        if (activeQuoteId && !catalogContext.activeQuoteFull) {
-            // Consider calling a function here that re-fetches the activeQuoteFull
-            // e.g. from useQuoteProcess context:  loadActiveQuoteDetails(activeQuoteId);
-            // For now, this scenario implies an issue with state persistence or flow.
-            console.warn("CatalogPage loaded with activeQuoteId but no activeQuoteFull details. State might be inconsistent.");
+        // Reset the store when component mounts (ensures clean state)
+        reset();
+        
+        if (id) {
+            const quoteId = parseInt(id);
+            if (!isNaN(quoteId)) {
+                loadQuote(quoteId);
+            }
         }
-    }, [activeQuoteId, catalogContext.activeQuoteFull]);
 
+        // Cleanup: reset store when component unmounts
+        return () => {
+            reset();
+        };
+    }, [id, loadQuote, reset]);
 
-    if (!activeQuoteId || !catalogContext.activeQuoteFull) {
-        // This can happen if navigating directly or state is lost.
-        // A robust app would handle this by redirecting or attempting to load.
+    if (!id || isNaN(parseInt(id))) {
+        return <Navigate to="/" replace />;
+    }
+
+    if (isLoading) {
         return (
             <div className="h-screen flex flex-col items-center justify-center bg-slate-100 p-4">
-                 <LoadingSpinner />
+                <LoadingSpinner />
                 <p className="mt-4 text-slate-600">Loading quote details...</p>
-                 <button 
-                    onClick={() => navigate('/')} // Use router navigation
-                    className="mt-6 text-sm text-blue-600 hover:text-blue-700 flex items-center gap-1"
+            </div>
+        );
+    }
+
+    if (error) {
+        return (
+            <div className="h-screen flex flex-col items-center justify-center bg-slate-100 p-4">
+                <ErrorMessage error={error} className="max-w-md" />
+                <button 
+                    onClick={() => navigate('/')}
+                    className="mt-4 text-blue-600 hover:text-blue-800 underline"
                 >
-                    <ChevronLeftIcon />
-                    Back to All Projects
+                    Back to quotes
                 </button>
             </div>
         );
+    }
+
+    if (!quote) {
+        return null; // This shouldn't happen, but prevents render errors
     }
 
     return (
@@ -69,4 +87,4 @@ const CatalogPage: React.FC = () => {
     );
 };
 
-export default CatalogPage;
+export default QuoteBuilderPage;
