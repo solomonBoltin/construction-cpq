@@ -330,7 +330,7 @@ class QuoteCalculator:
             
             # Update quote status
             logger.debug(f"Updating status of Quote ID: {quote_id} to 'calculated'.")
-            quote.status = QuoteStatus.FINAL
+            quote.status = QuoteStatus.CALCULATED
             session.add(quote)
             
             logger.info(f"Committing session for Quote ID: {quote_id}")

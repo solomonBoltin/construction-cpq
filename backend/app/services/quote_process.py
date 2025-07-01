@@ -129,6 +129,15 @@ class QuoteProcessService:
         self.session = session
         self.calculator = QuoteCalculator()
 
+    def _check_quote_editable(self, quote: Quote) -> None:
+        """Helper method to check if a quote can be modified."""
+        if quote.status == QuoteStatus.FINAL:
+            logger.warning(f"Attempt to modify finalized quote ID: {quote.id}")
+            raise HTTPException(
+                status_code=403, 
+                detail="Cannot modify a finalized quote"
+            )
+
     def _materialize_product_entry(self, entry: QuoteProductEntry) -> MaterializedProductEntry:
         """
         Private helper to convert a QuoteProductEntry model into a rich DTO.
@@ -258,18 +267,18 @@ class QuoteProcessService:
             raise
 
     def set_quote_status(self, quote_id: int, status: str) -> Quote:
-        """Sets the overall status of a quote (e.g., draft, calculated, finalized)."""
+        """Sets the overall status of a quote (e.g., draft, calculated, final)."""
         logger.info(f"Setting status for Quote ID: {quote_id} to '{status}'")
         quote = self.session.get(Quote, quote_id)
         if not quote:
             logger.warning(f"Quote ID {quote_id} not found for status update.")
             raise HTTPException(status_code=404, detail=f"Quote with id {quote_id} not found")
 
-        # Optional: Add validation for allowed status values or transitions if needed
-        # Example: allowed_statuses = ["draft", "calculated", "finalized", "archived"]
-        # if status not in allowed_statuses:
-        #     raise ValueError(f"Invalid status: {status}. Allowed statuses are: {', '.join(allowed_statuses)}")
-
+        # Validate allowed status values
+        allowed_statuses = [s.value for s in QuoteStatus]
+        if status not in allowed_statuses:
+            raise ValueError(f"Invalid status: {status}. Allowed statuses are: {', '.join(allowed_statuses)}")
+        
         try:
             quote.status = status
             quote.updated_at = datetime.now(timezone.utc) # Also update timestamp
@@ -347,6 +356,8 @@ class QuoteProcessService:
         quote = self.session.get(Quote, quote_id)
         if not quote:
             raise ValueError(f"Quote with id {quote_id} not found.")
+        
+        self._check_quote_editable(quote)
 
         try:
             new_entry = QuoteProductEntry(
@@ -392,6 +403,13 @@ class QuoteProcessService:
     def delete_quote_product_entry(self, quote_id: int, product_entry_id: int) -> None:
         """Removes a product entry from a quote, ensuring it belongs to the quote."""
         logger.info(f"Attempting to delete QuoteProductEntry ID: {product_entry_id} from Quote ID: {quote_id}")
+        
+        quote = self.session.get(Quote, quote_id)
+        if not quote:
+            raise HTTPException(status_code=404, detail=f"Quote with id {quote_id} not found")
+        
+        self._check_quote_editable(quote)
+        
         entry = self.session.get(QuoteProductEntry, product_entry_id)
         
         if not entry:
@@ -439,6 +457,12 @@ class QuoteProcessService:
         entry = self.session.get(QuoteProductEntry, product_entry_id)
         if not entry:
             raise ValueError(f"QuoteProductEntry with id {product_entry_id} not found.")
+
+        quote = self.session.get(Quote, entry.quote_id)
+        if not quote:
+            raise ValueError(f"Quote with id {entry.quote_id} not found.")
+        
+        self._check_quote_editable(quote)
 
         option_to_set = self.session.get(VariationOption, variation_option_id)
         if not option_to_set:
@@ -521,6 +545,12 @@ class QuoteProcessService:
         entry = self.session.get(QuoteProductEntry, product_entry_id)
         if not entry:
             raise HTTPException(status_code=404, detail=f"QuoteProductEntry with id {product_entry_id} not found")
+        
+        quote = self.session.get(Quote, entry.quote_id)
+        if not quote:
+            raise ValueError(f"Quote with id {entry.quote_id} not found.")
+        
+        self._check_quote_editable(quote)
         updated = False
         if quantity is not None:
             entry.quantity_of_product_units = quantity

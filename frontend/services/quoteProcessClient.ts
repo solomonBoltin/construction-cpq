@@ -154,4 +154,15 @@ export const quoteProcessClient = {
         const response = await fetch(`${API_BASE_URL}/quote-process/quotes/${quoteId}/full`, { headers });
         return handleResponse<FullQuote>(response);
     },
+
+    setQuoteStatus: async (quoteId: number, status: string): Promise<Quote> => {
+        const params = new URLSearchParams({
+            status: status,
+        });
+        const response = await fetch(`${API_BASE_URL}/quote-process/quotes/${quoteId}/status?${params.toString()}`, {
+            method: 'PUT',
+            headers,
+        });
+        return handleResponse<Quote>(response);
+    },
 };

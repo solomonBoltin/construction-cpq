@@ -538,7 +538,7 @@ async function runAutomation() {
 
             // Setting up the QuoteStatus column in the Quote table 
             const quoteStatusColumn = 'status'; // Actual column name in your DB
-            const quoteStatusEnumValues = ['DRAFT', 'FINAL', 'SENT']; // Values from models.py QuoteStatus enum
+            const quoteStatusEnumValues = ['DRAFT', 'CALCULATED', 'FINAL']; // Updated values
             await setupColumnTypeToSingleSelect(
                 CONFIG.nocodb.baseUrl,
                 apiToken,

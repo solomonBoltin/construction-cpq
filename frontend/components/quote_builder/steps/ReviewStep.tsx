@@ -3,12 +3,14 @@ import { useQuoteBuilderStore } from '../../../stores/useQuoteBuilderStore';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import { ComponentErrorBoundary } from '../../common/ErrorBoundary';
 import { useToast } from '../../../stores/useToastStore';
+import { handleApiError } from '../../../utils/errors';
 
 const ReviewStepContent: React.FC = () => {
     const { 
         quote, 
         calculatedQuote, 
         calculateQuote,
+        finalizeQuote,
         isLoading
     } = useQuoteBuilderStore();
     const toast = useToast();
@@ -20,8 +22,20 @@ const ReviewStepContent: React.FC = () => {
                 await calculateQuote();
                 toast.success('Quote calculated successfully');
             } catch (err) {
-                // Error is already in the store, just show toast
-                toast.error('Failed to calculate quote');
+                const errorMessage = handleApiError(err);
+                toast.error('Failed to calculate quote', errorMessage);
+            }
+        }
+    };
+
+    const handleFinalizeQuote = async () => {
+        if (quote && calculatedQuote && !isLoading) {
+            try {
+                await finalizeQuote();
+                toast.success('Quote finalized successfully! The quote is now read-only.');
+            } catch (err) {
+                const errorMessage = handleApiError(err);
+                toast.error('Failed to finalize quote', errorMessage);
             }
         }
     };
@@ -39,8 +53,19 @@ const ReviewStepContent: React.FC = () => {
     
     return (
         <div className="fade-in">
-            <h2 className="text-2xl font-bold text-slate-800 mb-1">Quote Review</h2>
-            <p className="text-slate-600 mb-6">Review the project items and calculated estimate.</p>
+            <div className="flex items-center justify-between mb-1">
+                <h2 className="text-2xl font-bold text-slate-800">Quote Review</h2>
+                {quote?.status === 'FINAL' && (
+                    <span className="bg-green-100 text-green-800 text-sm font-medium px-3 py-1 rounded-full">
+                        Finalized
+                    </span>
+                )}
+            </div>
+            <p className="text-slate-600 mb-6">
+                {quote?.status === 'FINAL' 
+                    ? 'This quote has been finalized and is read-only.'
+                    : 'Review the project items and calculated estimate.'}
+            </p>
 
             <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-2xl mx-auto">
                 <h3 className="text-xl font-bold text-slate-800 mb-6 text-center">
@@ -105,11 +130,21 @@ const ReviewStepContent: React.FC = () => {
                 
                 <div className="mt-8 text-center">
                    <button 
-                    disabled={!calculatedQuote || isLoading}
-                    className="bg-green-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+                    onClick={handleFinalizeQuote}
+                    disabled={!calculatedQuote || isLoading || quote?.status === 'FINAL'}
+                    className="bg-green-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                    >
-                     Finalize Project (Not Implemented)
+                     {quote?.status === 'FINAL' 
+                       ? 'Project Finalized' 
+                       : isLoading 
+                         ? 'Finalizing...' 
+                         : 'Finalize Project'}
                     </button>
+                    {quote?.status === 'FINAL' && (
+                      <p className="text-sm text-green-600 mt-2 font-medium">
+                        This quote has been finalized and is now read-only.
+                      </p>
+                    )}
                 </div>
             </div>
         </div>

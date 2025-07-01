@@ -29,6 +29,7 @@ interface QuoteBuilderStore {
   updateProductQuantity: (entryId: number, quantity: number) => Promise<void>;
   updateProductVariation: (entryId: number, groupId: number, optionId: number) => Promise<void>;
   calculateQuote: () => Promise<void>;
+  finalizeQuote: () => Promise<void>;
 }
 
 const initialState = {
@@ -97,7 +98,7 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
       const hasAdditional = quote.product_entries?.some(e => e.role === ProductRole.ADDITIONAL);
 
       // If quote is finalized, go to review
-      if (quote.status === QuoteStatus.FINAL || quote.status === QuoteStatus.FINALIZED) {
+      if (quote.status === QuoteStatus.FINAL) {
         setStep('review');
         return;
       }
@@ -235,6 +236,29 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
       } catch (error) {
         console.error('Error removing entry:', error);
         throw error; // Re-throw for component to handle with toast
+      }
+    },
+
+    finalizeQuote: async () => {
+      const { quote, setLoading } = get();
+      if (!quote) throw new Error('No quote loaded');
+
+      setLoading(true);
+
+      try {
+        const updatedQuote = await apiClient.setQuoteStatus(quote.id, QuoteStatus.FINAL);
+        
+        // Update the quote in the store
+        set((state) => {
+          if (state.quote) {
+            state.quote.status = updatedQuote.status;
+          }
+        });
+      } catch (error) {
+        console.error('Error finalizing quote:', error);
+        throw error; // Re-throw for component to handle with toast
+      } finally {
+        setLoading(false);
       }
     },
   }))

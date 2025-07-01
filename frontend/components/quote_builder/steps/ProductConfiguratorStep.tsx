@@ -4,7 +4,9 @@ import { useStepNavigation } from '../../../hooks/useStepNavigation';
 import { MaterializedProductEntry, ProductRole } from '../../../types';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import { shortUnitType } from '../../../utils/units';
-import { debounce } from '../../../utils/debounce'; 
+import { debounce } from '../../../utils/debounce';
+import { useToast } from '../../../stores/useToastStore';
+import { handleApiError } from '../../../utils/errors';
 
 interface ProductConfiguratorStepProps {
     role: ProductRole.MAIN | ProductRole.SECONDARY;
@@ -18,17 +20,32 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
         isLoading: contextLoading
     } = useQuoteBuilderStore();
     const { goToStep } = useStepNavigation();
+    const toast = useToast();
 
     // Find the entry that matches the role directly from the context
     const productEntry = quote?.product_entries.find(e => e.role === role) as MaterializedProductEntry | undefined;
 
-    // Debounced quantity update
+    // Debounced quantity update with error handling
     const debouncedUpdateQuantity = useCallback(
-        debounce((entryId: number, quantity: number) => {
-            updateProductQuantity(entryId, quantity);
+        debounce(async (entryId: number, quantity: number) => {
+            try {
+                await updateProductQuantity(entryId, quantity);
+            } catch (error) {
+                const errorMessage = handleApiError(error);
+                toast.error('Failed to update quantity', errorMessage);
+            }
         }, 500),
-        [updateProductQuantity]
+        [updateProductQuantity, toast]
     );
+
+    const handleVariationChange = async (entryId: number, groupId: number, optionId: number) => {
+        try {
+            await updateProductVariation(entryId, groupId, optionId);
+        } catch (error) {
+            const errorMessage = handleApiError(error);
+            toast.error('Failed to update option', errorMessage);
+        }
+    };
 
     if (!productEntry?.id) {
          return (
@@ -81,7 +98,7 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
                                     {group.options.map(opt => (
                                         <button 
                                             key={opt.id}
-                                            onClick={() => updateProductVariation(productEntry.id, group.id, opt.id)}
+                                            onClick={() => handleVariationChange(productEntry.id, group.id, opt.id)}
                                             className={`px-3 py-1.5 text-sm font-medium rounded-md border transition-colors
                                                         ${opt.is_selected ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'}`}
                                         >

@@ -71,19 +71,21 @@ const ProductSelectorStepContent: React.FC<ProductSelectorStepProps> = ({ role }
                 // Remove existing entry before adding new one
                 const existingEntry = quote?.product_entries?.find(e => e.role === role);
                 if (existingEntry) {
-                    await removeEntry(existingEntry.id);
+                    try {
+                        await removeEntry(existingEntry.id);
+                    } catch (error) {
+                        const errorMessage = handleApiError(error);
+                        toast.error('Failed to remove existing product', errorMessage);
+                        return;
+                    }
                 }
             }
 
             try {
-                const productEntry = await selectProduct(item.id, role);
-                // Navigate immediately after successful product selection
-                if (productEntry) {
-                    toast.success(`${role} product selected successfully`);
-                    navigateAfterAction('productSelected', role);
-                }
+                await selectProduct(item.id, role);
+                toast.success(`${role} product selected successfully`);
+                navigateAfterAction('productSelected', role);
             } catch (error) {
-                console.error('Error selecting product:', error);
                 const errorMessage = handleApiError(error);
                 toast.error('Failed to select product', errorMessage);
             }

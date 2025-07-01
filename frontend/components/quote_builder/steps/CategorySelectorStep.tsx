@@ -34,7 +34,6 @@ const CategorySelectorStepContent: React.FC = () => {
 
     const handleSelectCategory = (category: CategoryPreview) => {
         selectCategory(category.name);
-        toast.success(`${category.name} category selected`);
         navigateAfterAction('categorySelected');
     };
 

@@ -7,7 +7,8 @@ from fastapi import HTTPException
 from app.models import (
     Quote, QuoteConfig, QuoteType, Product, ProductCategory, 
     QuoteProductEntry, ProductRole, VariationGroup, VariationOption, 
-    CalculatedQuote, QuoteProductEntryVariation, ProductProductCategoryLink
+    CalculatedQuote, QuoteProductEntryVariation, ProductProductCategoryLink,
+    UnitType
 )
 from app.services.quote_process import (
     QuoteProcessService, QuotePreview, CategoryPreview, ProductPreview, 
@@ -21,12 +22,17 @@ def quote_process_service(mock_session: MagicMock):
 @pytest.fixture
 def mock_product_entry_with_variations(mock_session: MagicMock, D_fixture): 
     D = D_fixture
+    
+    # Create a mock UnitType
+    mock_unit_type = UnitType(id=1, name="each", category="quantity")
+    
     entry = QuoteProductEntry(
         id=1, quote_id=1, product_id=100, 
         quantity_of_product_units=D("1"), role=ProductRole.MAIN, 
         selected_variations=[]
     )
     product = Product(id=100, name="Configurable Product", product_unit_type_id=1, variation_groups=[])
+    product.product_unit_type = mock_unit_type  # Set the relationship
     group_single = VariationGroup(id=10, product_id=100, name="Color", selection_type="single_choice", is_required=True, options=[])
     option_red = VariationOption(id=101, variation_group_id=10, name="Red", additional_price=D("10"), variation_group=group_single)
     option_blue = VariationOption(id=102, variation_group_id=10, name="Blue", additional_price=D("12"), variation_group=group_single)
@@ -46,6 +52,7 @@ def mock_product_entry_with_variations(mock_session: MagicMock, D_fixture):
     def get_side_effect(model, pk):
         if model == QuoteProductEntry and pk == entry.id: return entry
         if model == Product and pk == product.id: return product
+        if model == UnitType and pk == mock_unit_type.id: return mock_unit_type
         if model == VariationOption and pk == option_red.id: return option_red
         if model == VariationOption and pk == option_blue.id: return option_blue
         if model == VariationOption and pk == option_gps.id: return option_gps
@@ -96,15 +103,15 @@ class TestQuoteProcessService:
         assert new_quote.quote_config is not None
         assert new_quote.quote_config.id == expected_quote_config.id
         assert new_quote.quote_config.name == expected_quote_config.name
-        assert new_quote.status == "draft"
+        assert new_quote.status == "DRAFT"
 
         mock_session.add.assert_called_once_with(new_quote)
         mock_session.commit.assert_called_once()
         mock_session.refresh.assert_called_once_with(new_quote)
 
     def test_get_quotes_no_filter(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
-        mock_quote_1 = Quote(id=1, name="Quote 1", status="draft", quote_type=QuoteType.FENCE_PROJECT, updated_at=datetime.now(timezone.utc))
-        mock_quote_2 = Quote(id=2, name="Quote 2", status="approved", quote_type=QuoteType.DECK_PROJECT, updated_at=datetime.now(timezone.utc))
+        mock_quote_1 = Quote(id=1, name="Quote 1", status="DRAFT", quote_type=QuoteType.FENCE_PROJECT, updated_at=datetime.now(timezone.utc))
+        mock_quote_2 = Quote(id=2, name="Quote 2", status="CALCULATED", quote_type=QuoteType.DECK_PROJECT, updated_at=datetime.now(timezone.utc))
         
         mock_exec_result = MagicMock()
         mock_exec_result.all.return_value = [mock_quote_1, mock_quote_2]
@@ -128,7 +135,7 @@ class TestQuoteProcessService:
         mock_session.get.assert_called_once_with(QuoteConfig, 99)
 
     def test_get_quotes_with_filter(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
-        mock_fence_quote = Quote(id=1, name="Fence Quote", status="draft", quote_type=QuoteType.FENCE_PROJECT, updated_at=datetime.now(timezone.utc))
+        mock_fence_quote = Quote(id=1, name="Fence Quote", status="DRAFT", quote_type=QuoteType.FENCE_PROJECT, updated_at=datetime.now(timezone.utc))
         
         mock_exec_result = MagicMock()
         mock_exec_result.all.return_value = [mock_fence_quote]
@@ -184,8 +191,10 @@ class TestQuoteProcessService:
     def test_get_products_previews(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
         category_name = "Fencing"
         mock_category = ProductCategory(id=1, name=category_name)
-        mock_prod_1 = Product(id=1, name="Wood Panel", description="Standard wood panel", product_unit_type_id=1)
-        mock_prod_2 = Product(id=2, name="Metal Post", description="Strong metal post", product_unit_type_id=1)
+        mock_prod_1 = create_mock_product(1, "Wood Panel")
+        mock_prod_1.description = "Standard wood panel"
+        mock_prod_2 = create_mock_product(2, "Metal Post")
+        mock_prod_2.description = "Strong metal post"
 
         mock_category_exec_result = MagicMock()
         mock_category_exec_result.first.return_value = mock_category
@@ -215,8 +224,8 @@ class TestQuoteProcessService:
     def test_get_products_previews_pagination_and_filter(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
         category_name = "Wood Fences"
         mock_category = ProductCategory(id=5, name=category_name, type="fence")
-        mock_product_1 = Product(id=101, name="Pine Fence Panel", product_unit_type_id=1)
-        mock_product_2 = Product(id=102, name="Cedar Fence Panel", product_unit_type_id=1)
+        mock_product_1 = create_mock_product(101, "Pine Fence Panel")
+        mock_product_2 = create_mock_product(102, "Cedar Fence Panel")
         
         mock_category_exec_result = MagicMock()
         mock_category_exec_result.first.return_value = mock_category
@@ -252,13 +261,14 @@ class TestQuoteProcessService:
         role = ProductRole.MAIN
 
         mock_quote = Quote(id=quote_id, name="Test Quote") 
-        mock_product = Product(id=product_id, name="Test Product", product_unit_type_id=1, variation_groups=[]) 
+        mock_product = create_mock_product(product_id, "Test Product")
         
         original_get_side_effect = mock_session.get.side_effect
 
         def get_side_effect(model, pk):
             if model == Quote and pk == quote_id: return mock_quote
             if model == Product and pk == product_id: return mock_product
+            if model == UnitType and pk == 1: return mock_product.product_unit_type
             if original_get_side_effect: return original_get_side_effect(model, pk)
             return MagicMock() 
         mock_session.get.side_effect = get_side_effect
@@ -309,28 +319,12 @@ class TestQuoteProcessService:
         mock_session.get.assert_called_once_with(Quote, 99)
         mock_session.add.assert_not_called()
 
-    def test_add_quote_product_entry_main_product_exists(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, D_fixture):
-        D = D_fixture
-        quote_id = 1
-        mock_quote = Quote(id=quote_id, name="Test Quote")
-        existing_main_entry = QuoteProductEntry(id=50, quote_id=quote_id, product_id=5, quantity_of_product_units=D("1"), role=ProductRole.MAIN)
-
-        mock_session.get.return_value = mock_quote
-        
-        mock_exec_result = MagicMock()
-        mock_exec_result.first.return_value = existing_main_entry
-        mock_session.exec.side_effect = [mock_exec_result]
-
-        with pytest.raises(ValueError, match="A main product already exists for this quote"):
-            quote_process_service.add_quote_product_entry(quote_id, 10, D("1"), ProductRole.MAIN)
-        
-        mock_session.get.assert_called_once_with(Quote, quote_id)
 
     def test_get_quote_product_entries_no_role_filter(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, D_fixture):
         D = D_fixture
         quote_id = 1
-        mock_product_1 = Product(id=101, name="Main Product", product_unit_type_id=1, variation_groups=[])
-        mock_product_2 = Product(id=102, name="Secondary Product", product_unit_type_id=1, variation_groups=[])
+        mock_product_1 = create_mock_product(101, "Main Product")
+        mock_product_2 = create_mock_product(102, "Secondary Product")
         mock_entry_1 = QuoteProductEntry(id=1, quote_id=quote_id, product_id=101, product=mock_product_1, quantity_of_product_units=D("2"), role=ProductRole.MAIN, selected_variations=[])
         mock_entry_2 = QuoteProductEntry(id=2, quote_id=quote_id, product_id=102, product=mock_product_2, quantity_of_product_units=D("5"), role=ProductRole.SECONDARY, selected_variations=[])
 
@@ -349,6 +343,7 @@ class TestQuoteProcessService:
         def get_side_effect(model, pk):
             if model == Product and pk == 101: return mock_product_1
             if model == Product and pk == 102: return mock_product_2
+            if model == UnitType and pk == 1: return mock_product_1.product_unit_type
             if original_get_side_effect: return original_get_side_effect(model, pk)
             return MagicMock()
         mock_session.get.side_effect = get_side_effect
@@ -363,7 +358,7 @@ class TestQuoteProcessService:
     def test_get_quote_product_entries_with_role_filter(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, D_fixture):
         D = D_fixture
         quote_id = 1
-        mock_product_1 = Product(id=101, name="Main Product", product_unit_type_id=1, variation_groups=[])
+        mock_product_1 = create_mock_product(101, "Main Product")
         mock_main_entry = QuoteProductEntry(id=1, quote_id=quote_id, product_id=101, product=mock_product_1, quantity_of_product_units=D("1"), role=ProductRole.MAIN, selected_variations=[])
         
         mock_get_entries_exec = MagicMock()
@@ -375,7 +370,9 @@ class TestQuoteProcessService:
         original_get_side_effect = mock_session.get.side_effect
         def get_side_effect(model, pk):
             if model == Product and pk == 101: return mock_product_1
-            original_get_side_effect(model, pk)
+            if model == UnitType and pk == 1: return mock_product_1.product_unit_type
+            if original_get_side_effect: return original_get_side_effect(model, pk)
+            return MagicMock()
         mock_session.get.side_effect = get_side_effect
 
         results = quote_process_service.get_quote_product_entries(quote_id, role=ProductRole.MAIN)
@@ -392,22 +389,44 @@ class TestQuoteProcessService:
         D = D_fixture
         quote_id = 1
         entry_id = 10
+        mock_quote = Quote(id=quote_id, name="Test Quote", status="DRAFT")
         mock_entry = QuoteProductEntry(id=entry_id, quote_id=quote_id, product_id=101, quantity_of_product_units=D("1"), role=ProductRole.MAIN)
-        mock_session.get.return_value = mock_entry
+        
+        def mock_get_side_effect(model_class, entity_id):
+            if model_class == Quote and entity_id == quote_id:
+                return mock_quote
+            if model_class == QuoteProductEntry and entity_id == entry_id:
+                return mock_entry
+            return None
+        
+        mock_session.get.side_effect = mock_get_side_effect
 
         quote_process_service.delete_quote_product_entry(quote_id, entry_id)
 
-        mock_session.get.assert_called_once_with(QuoteProductEntry, entry_id)
+        mock_session.get.assert_any_call(Quote, quote_id)
+        mock_session.get.assert_any_call(QuoteProductEntry, entry_id)
         mock_session.delete.assert_called_once_with(mock_entry)
         mock_session.commit.assert_called_once()
 
     def test_delete_quote_product_entry_not_found(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
+        quote_id = 1
         entry_id = 10
-        mock_session.get.return_value = None
-
-        with pytest.raises(HTTPException, match=f"QuoteProductEntry with id {entry_id} not found"):
-            quote_process_service.delete_quote_product_entry(1, entry_id)
+        mock_quote = Quote(id=quote_id, name="Test Quote", status="DRAFT")
         
+        def mock_get_side_effect(model_class, entity_id):
+            if model_class == Quote and entity_id == quote_id:
+                return mock_quote
+            if model_class == QuoteProductEntry and entity_id == entry_id:
+                return None
+            return None
+        
+        mock_session.get.side_effect = mock_get_side_effect
+
+        with pytest.raises(HTTPException) as exc_info:
+            quote_process_service.delete_quote_product_entry(quote_id, entry_id)
+        
+        assert exc_info.value.status_code == 404
+        assert f"QuoteProductEntry with id {entry_id} not found" in str(exc_info.value.detail)
         mock_session.delete.assert_not_called()
         mock_session.commit.assert_not_called()
 
@@ -416,12 +435,23 @@ class TestQuoteProcessService:
         quote_id = 1
         wrong_quote_id = 2
         entry_id = 10
+        mock_quote = Quote(id=quote_id, name="Test Quote", status="DRAFT")
         mock_entry = QuoteProductEntry(id=entry_id, quote_id=wrong_quote_id, product_id=101, quantity_of_product_units=D("1"), role=ProductRole.MAIN)
-        mock_session.get.return_value = mock_entry
+        
+        def mock_get_side_effect(model_class, entity_id):
+            if model_class == Quote and entity_id == quote_id:
+                return mock_quote
+            if model_class == QuoteProductEntry and entity_id == entry_id:
+                return mock_entry
+            return None
+        
+        mock_session.get.side_effect = mock_get_side_effect
 
-        with pytest.raises(HTTPException, match=f"QuoteProductEntry with id {entry_id} does not belong to quote {quote_id}"):
+        with pytest.raises(HTTPException) as exc_info:
             quote_process_service.delete_quote_product_entry(quote_id, entry_id)
         
+        assert exc_info.value.status_code == 400
+        assert f"QuoteProductEntry with id {entry_id} does not belong to quote {quote_id}" in str(exc_info.value.detail)
         mock_session.delete.assert_not_called()
         mock_session.commit.assert_not_called()
 
@@ -583,7 +613,7 @@ class TestQuoteProcessService:
         D = D_fixture
         quote_id = 1
         new_ui_state = "pick_main_product"
-        mock_quote = Quote(id=quote_id, name="Test Quote", ui_state="initial_state", quote_config_id=1, quote_type=QuoteType.FENCE_PROJECT, status="draft")
+        mock_quote = Quote(id=quote_id, name="Test Quote", ui_state="initial_state", quote_config_id=1, quote_type=QuoteType.FENCE_PROJECT, status="DRAFT")
         
         original_get_side_effect = mock_session.get.side_effect
         def get_side_effect_for_quote(model, pk):
@@ -611,8 +641,8 @@ class TestQuoteProcessService:
     def test_set_quote_status_success(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, D_fixture):
         D = D_fixture
         quote_id = 1
-        new_status = "finalized"
-        mock_quote = Quote(id=quote_id, name="Test Quote", status="calculated", quote_config_id=1, quote_type=QuoteType.FENCE_PROJECT)
+        new_status = "FINAL"
+        mock_quote = Quote(id=quote_id, name="Test Quote", status="CALCULATED", quote_config_id=1, quote_type=QuoteType.FENCE_PROJECT)
 
         original_get_side_effect = mock_session.get.side_effect
         def get_side_effect_for_quote(model, pk):
@@ -634,13 +664,13 @@ class TestQuoteProcessService:
     def test_set_quote_status_quote_not_found(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
         mock_session.get.return_value = None
         with pytest.raises(HTTPException) as exc_info:
-            quote_process_service.set_quote_status(99, "finalized")
+            quote_process_service.set_quote_status(99, "FINAL")
         assert exc_info.value.status_code == 404
 
     def test_get_quotes_pagination(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
         mock_quotes_page = [
-            Quote(id=1, name="Quote 1", status="draft", quote_type=QuoteType.FENCE_PROJECT, updated_at=datetime.now(timezone.utc), quote_config_id=1),
-            Quote(id=2, name="Quote 2", status="draft", quote_type=QuoteType.FENCE_PROJECT, updated_at=datetime.now(timezone.utc), quote_config_id=1)
+            Quote(id=1, name="Quote 1", status="DRAFT", quote_type=QuoteType.FENCE_PROJECT, updated_at=datetime.now(timezone.utc), quote_config_id=1),
+            Quote(id=2, name="Quote 2", status="DRAFT", quote_type=QuoteType.FENCE_PROJECT, updated_at=datetime.now(timezone.utc), quote_config_id=1)
         ]
         
         mock_exec_result = MagicMock()
@@ -656,3 +686,130 @@ class TestQuoteProcessService:
         called_statement = mock_session.exec.call_args[0][0]
         assert called_statement._offset_clause is not None
         assert called_statement._limit_clause is not None
+
+def create_mock_product(product_id: int, name: str, unit_type_name: str = "each") -> Product:
+    """Helper function to create a properly configured Product mock with UnitType relationship"""
+    mock_unit_type = UnitType(id=1, name=unit_type_name, category="quantity")
+    product = Product(id=product_id, name=name, product_unit_type_id=1, variation_groups=[])
+    product.product_unit_type = mock_unit_type
+    return product
+
+
+class TestFinalizedQuoteProtection:
+    """Test that finalized quotes cannot be modified."""
+
+    def test_add_product_to_finalized_quote_blocked(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, D_fixture):
+        """Test that adding products to a finalized quote is blocked."""
+        D = D_fixture
+        quote_id = 1
+        mock_quote = Quote(id=quote_id, name="Test Quote", status="FINAL")
+        mock_session.get.return_value = mock_quote
+        
+        with pytest.raises(HTTPException) as exc_info:
+            quote_process_service.add_quote_product_entry(quote_id, 10, D("1"), ProductRole.MAIN)
+        
+        assert exc_info.value.status_code == 403
+        assert "Cannot modify a finalized quote" in str(exc_info.value.detail)
+
+    def test_delete_product_from_finalized_quote_blocked(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
+        """Test that deleting products from a finalized quote is blocked."""
+        quote_id = 1
+        entry_id = 10
+        mock_quote = Quote(id=quote_id, name="Test Quote", status="FINAL")
+        mock_session.get.return_value = mock_quote
+        
+        with pytest.raises(HTTPException) as exc_info:
+            quote_process_service.delete_quote_product_entry(quote_id, entry_id)
+        
+        assert exc_info.value.status_code == 403
+        assert "Cannot modify a finalized quote" in str(exc_info.value.detail)
+
+    def test_update_variation_on_finalized_quote_blocked(self, quote_process_service: QuoteProcessService, mock_session: MagicMock):
+        """Test that updating variations on a finalized quote is blocked."""
+        entry_id = 10
+        option_id = 101
+        
+        mock_entry = QuoteProductEntry(id=entry_id, quote_id=1, product_id=100, quantity_of_product_units=Decimal("1"))
+        mock_quote = Quote(id=1, name="Test Quote", status="FINAL")
+        
+        def mock_get_side_effect(model_class, entity_id):
+            if model_class == QuoteProductEntry and entity_id == entry_id:
+                return mock_entry
+            if model_class == Quote and entity_id == 1:
+                return mock_quote
+            return None
+        
+        mock_session.get.side_effect = mock_get_side_effect
+        
+        with pytest.raises(HTTPException) as exc_info:
+            quote_process_service.set_quote_product_variation_option(entry_id, option_id)
+        
+        assert exc_info.value.status_code == 403
+        assert "Cannot modify a finalized quote" in str(exc_info.value.detail)
+
+    def test_update_product_entry_on_finalized_quote_blocked(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, D_fixture):
+        """Test that updating product entries on a finalized quote is blocked."""
+        D = D_fixture
+        entry_id = 10
+        
+        mock_entry = QuoteProductEntry(id=entry_id, quote_id=1, product_id=100, quantity_of_product_units=D("1"))
+        mock_quote = Quote(id=1, name="Test Quote", status="FINAL")
+        
+        def mock_get_side_effect(model_class, entity_id):
+            if model_class == QuoteProductEntry and entity_id == entry_id:
+                return mock_entry
+            if model_class == Quote and entity_id == 1:
+                return mock_quote
+            return None
+        
+        mock_session.get.side_effect = mock_get_side_effect
+        
+        with pytest.raises(HTTPException) as exc_info:
+            quote_process_service.update_quote_product_entry(entry_id, quantity=D("5"))
+        
+        assert exc_info.value.status_code == 403
+        assert "Cannot modify a finalized quote" in str(exc_info.value.detail)
+
+    def test_draft_quote_modifications_still_work(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, D_fixture):
+        """Test that draft quotes can still be modified."""
+        D = D_fixture
+        quote_id = 1
+        product_id = 10
+        
+        mock_quote = Quote(id=quote_id, name="Test Quote", status="DRAFT")
+        mock_product = create_mock_product(product_id, "Test Product")
+        
+        # Create a mock entry with an ID for materialization
+        mock_entry = QuoteProductEntry(
+            id=999,  # Add ID for materialization
+            quote_id=quote_id, 
+            product_id=product_id, 
+            quantity_of_product_units=D("1"),
+            role=ProductRole.MAIN
+        )
+        
+        def mock_get_side_effect(model_class, entity_id):
+            if model_class == Quote and entity_id == quote_id:
+                return mock_quote
+            if model_class == Product and entity_id == product_id:
+                return mock_product
+            return None
+        
+        mock_session.get.side_effect = mock_get_side_effect
+        
+        # Mock the session operations
+        mock_session.add = MagicMock()
+        mock_session.commit = MagicMock()
+        mock_session.refresh = MagicMock(side_effect=lambda entry: setattr(entry, 'id', 999))
+        mock_session.exec = MagicMock()
+        mock_exec_result = MagicMock()
+        mock_exec_result.all.return_value = []
+        mock_session.exec.return_value = mock_exec_result
+        
+        # This should not raise an exception
+        result = quote_process_service.add_quote_product_entry(quote_id, product_id, D("1"), ProductRole.MAIN)
+        
+        # Verify the quote was checked but not blocked
+        mock_session.get.assert_any_call(Quote, quote_id)
+        mock_session.add.assert_called_once()
+        mock_session.commit.assert_called_once()

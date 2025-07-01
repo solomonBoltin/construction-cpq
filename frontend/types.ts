@@ -7,11 +7,8 @@ export enum QuoteType {
 
 export enum QuoteStatus {
     DRAFT = "DRAFT",
-    FINAL = "FINAL",
-    SENT = "SENT",
-    // Adding frontend/mockup statuses
-    CALCULATED = "calculated", // from mockup
-    FINALIZED = "finalized" // from mockup
+    CALCULATED = "CALCULATED",
+    FINAL = "FINAL"
 }
 
 export enum ProductRole {

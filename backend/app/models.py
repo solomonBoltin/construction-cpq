@@ -116,9 +116,9 @@ class QuoteType(str, Enum):
 
 class QuoteStatus(str, Enum):
     """Defines the status of a quote."""
-    DRAFT = "DRAFT"  # Initial state, not yet finalized
-    FINAL = "FINAL"  # Finalized and ready for review
-    SENT = "SENT"    # Sent to customer
+    DRAFT = "DRAFT"        # Initial state, fully editable
+    CALCULATED = "CALCULATED"  # Quote has been calculated, limited editing allowed
+    FINAL = "FINAL"        # Quote is finalized, read-only
     
 
 class ProductRole(str, Enum):
