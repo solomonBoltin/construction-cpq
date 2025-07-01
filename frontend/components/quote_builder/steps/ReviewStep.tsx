@@ -1,21 +1,28 @@
 import React from 'react';
 import { useQuoteBuilderStore } from '../../../stores/useQuoteBuilderStore';
 import LoadingSpinner from '../../common/LoadingSpinner';
-import ErrorMessage from '../../common/ErrorMessage';
+import { ComponentErrorBoundary } from '../../common/ErrorBoundary';
+import { useToast } from '../../../stores/useToastStore';
 
-const ReviewStep: React.FC = () => {
+const ReviewStepContent: React.FC = () => {
     const { 
         quote, 
         calculatedQuote, 
         calculateQuote,
-        isLoading, 
-        error 
+        isLoading
     } = useQuoteBuilderStore();
+    const toast = useToast();
 
     // Don't auto-calculate - let the user manually trigger calculation
-    const handleCalculateQuote = () => {
+    const handleCalculateQuote = async () => {
         if (quote && !isLoading) {
-            calculateQuote();
+            try {
+                await calculateQuote();
+                toast.success('Quote calculated successfully');
+            } catch (err) {
+                // Error is already in the store, just show toast
+                toast.error('Failed to calculate quote');
+            }
         }
     };
 
@@ -57,7 +64,6 @@ const ReviewStep: React.FC = () => {
                 <hr className="my-6" />
 
                 {isLoading && <div className="py-4"><LoadingSpinner /></div>}
-                <ErrorMessage error={error} className="mb-4" />
 
                 {calculatedQuote ? (
                     <>
@@ -109,5 +115,11 @@ const ReviewStep: React.FC = () => {
         </div>
     );
 };
+
+const ReviewStep: React.FC = () => (
+    <ComponentErrorBoundary>
+        <ReviewStepContent />
+    </ComponentErrorBoundary>
+);
 
 export default ReviewStep;

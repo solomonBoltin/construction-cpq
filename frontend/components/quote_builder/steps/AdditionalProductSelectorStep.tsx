@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useQuoteBuilderStore } from '../../../stores/useQuoteBuilderStore';
 import { useStepNavigation } from '../../../hooks/useStepNavigation';
 import { apiClient } from '../../../services/api';
@@ -6,46 +6,53 @@ import { ProductPreview, ProductRole, CategoryPreview } from '../../../types';
 import { AddonCategoryType } from '../../../constants';
 import GenericProductSelector from '../GenericProductSelector';
 import TrashIcon from '../../icons/TrashIcon';
+import { useToast } from '../../../stores/useToastStore';
+import { handleApiError } from '../../../utils/errors';
+import { ComponentErrorBoundary } from '../../common/ErrorBoundary';
+import { useStepFetch } from '../../../hooks/useStepFetch';
 
-const AdditionalProductSelectorStep: React.FC = () => {
+const AdditionalProductSelectorStepContent: React.FC = () => {
     const { 
         quote, 
         selectProduct, 
         removeEntry,
-        isLoading: contextLoading,
-        error: contextError
+        isLoading: contextLoading
     } = useQuoteBuilderStore();
     const { goToStep } = useStepNavigation();
+    const toast = useToast();
 
     const [additionalProducts, setAdditionalProducts] = useState<ProductPreview[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
-    useEffect(() => {
-        const fetchProducts = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const categories = await apiClient.listCategories(AddonCategoryType);
-                if (categories.length > 0) {
-                    const products = await apiClient.listProductsInCategory(categories[0].name);
-                    setAdditionalProducts(products);
-                } else {
-                    setAdditionalProducts([]);
-                }
-            } catch (err) {
-                setError((err as Error).message);
-            } finally {
-                setIsLoading(false);
+    useStepFetch(async () => {
+        setIsLoading(true);
+        try {
+            const categories = await apiClient.listCategories(AddonCategoryType);
+            if (categories.length > 0) {
+                const products = await apiClient.listProductsInCategory(categories[0].name);
+                setAdditionalProducts(products);
+            } else {
+                setAdditionalProducts([]);
             }
-        };
-        fetchProducts();
-    }, []);
+        } catch (err) {
+            const errorMessage = handleApiError(err);
+            toast.error('Failed to load additional products', errorMessage);
+            setAdditionalProducts([]);
+        } finally {
+            setIsLoading(false);
+        }
+    });
 
-    const handleSelectProduct = (item: ProductPreview | CategoryPreview) => {
+    const handleSelectProduct = async (item: ProductPreview | CategoryPreview) => {
         // Type guard to ensure it's a ProductPreview
         if ('id' in item && typeof item.id === 'number') {
-            selectProduct(item.id, ProductRole.ADDITIONAL);
+            try {
+                await selectProduct(item.id, ProductRole.ADDITIONAL);
+                toast.success('Additional product added successfully');
+            } catch (error) {
+                const errorMessage = handleApiError(error);
+                toast.error('Failed to add additional product', errorMessage);
+            }
         }
     };
 
@@ -71,7 +78,15 @@ const AdditionalProductSelectorStep: React.FC = () => {
                                     <span className="text-sm text-slate-600 ml-2">(Qty: {product.quantity_of_product_units})</span>
                                 </div>
                                 <button
-                                    onClick={() => removeEntry(product.id)}
+                                    onClick={async () => {
+                                        try {
+                                            await removeEntry(product.id);
+                                            toast.success('Additional product removed');
+                                        } catch (error) {
+                                            const errorMessage = handleApiError(error);
+                                            toast.error('Failed to remove product', errorMessage);
+                                        }
+                                    }}
                                     className="text-red-500 hover:text-red-700 p-1"
                                     title="Remove service"
                                 >
@@ -87,7 +102,6 @@ const AdditionalProductSelectorStep: React.FC = () => {
                 title="Available Additional Services"
                 items={additionalProducts}
                 isLoading={isLoading || contextLoading}
-                error={error || contextError}
                 onSelect={handleSelectProduct}
                 emptyMessage="No additional services available."
             />
@@ -117,5 +131,11 @@ const AdditionalProductSelectorStep: React.FC = () => {
         </div>
     );
 };
+
+const AdditionalProductSelectorStep: React.FC = () => (
+    <ComponentErrorBoundary>
+        <AdditionalProductSelectorStepContent />
+    </ComponentErrorBoundary>
+);
 
 export default AdditionalProductSelectorStep;

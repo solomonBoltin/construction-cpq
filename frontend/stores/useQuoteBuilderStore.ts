@@ -2,7 +2,6 @@ import { create } from 'zustand';
 import { immer } from 'zustand/middleware/immer';
 import { FullQuote, MaterializedProductEntry, CalculatedQuote, QuoteBuilderStepKey, ProductRole, QuoteStatus } from '../types';
 import { apiClient } from '../services/api';
-import { handleApiError } from '../utils/errors';
 
 interface QuoteBuilderStore {
   // State
@@ -11,11 +10,9 @@ interface QuoteBuilderStore {
   selectedCategoryName: string | null;
   calculatedQuote: CalculatedQuote | null;
   isLoading: boolean;
-  error: string | null;
 
   // Actions
   setLoading: (loading: boolean) => void;
-  setError: (error: string | null) => void;
   setQuote: (quote: FullQuote) => void;
   setStep: (step: QuoteBuilderStepKey) => void;
   selectCategory: (name: string) => void;
@@ -40,7 +37,6 @@ const initialState = {
   selectedCategoryName: null,
   calculatedQuote: null,
   isLoading: false,
-  error: null,
 };
 
 export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
@@ -50,10 +46,6 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
     // Sync actions
     setLoading: (loading) => set((state) => {
       state.isLoading = loading;
-    }),
-
-    setError: (error) => set((state) => {
-      state.error = error;
     }),
 
     setQuote: (quote) => set((state) => {
@@ -66,7 +58,6 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
 
     selectCategory: (name) => set((state) => {
       state.selectedCategoryName = name;
-      // Remove automatic navigation - let useStepNavigation handle it
     }),
 
     updateEntry: (entryId, updates) => set((state) => {
@@ -136,9 +127,8 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
 
     // Async actions
     loadQuote: async (quoteId, shouldInitializeStep=false) => {
-      const { setLoading, setError, setQuote, initializeStep } = get();
+      const { setLoading, setQuote, initializeStep } = get();
       setLoading(true);
-      setError(null);
       
       try {
         const quote = await apiClient.getQuoteFull(quoteId);
@@ -160,18 +150,18 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
         if (shouldInitializeStep) 
           initializeStep();
       } catch (error) {
-        setError(handleApiError(error));
+        console.error('Error loading quote:', error);
+        throw error; // Re-throw for component to handle with toast
       } finally {
         setLoading(false);
       }
     },
 
     selectProduct: async (productId, role) => {
-      const { quote, setLoading, setError, addEntry } = get();
+      const { quote, setLoading, addEntry } = get();
       if (!quote) throw new Error('No quote loaded');
 
       setLoading(true);
-      setError(null);
 
       try {
         const productEntry = await apiClient.addQuoteProductEntry(quote.id, productId, 1, role as any);
@@ -179,26 +169,27 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
         // Return the entry so the caller can decide what to do next
         return productEntry;
       } catch (error) {
-        setError(handleApiError(error));
-        throw error;
+        console.error('Error selecting product:', error);
+        throw error; // Re-throw for component to handle with toast
       } finally {
         setLoading(false);
       }
     },
 
     updateProductQuantity: async (entryId, quantity) => {
-      const { setError, updateEntry } = get();
+      const { updateEntry } = get();
       
       try {
         await apiClient.updateQuoteProductEntry(entryId, { quantity });
         updateEntry(entryId, { quantity_of_product_units: quantity });
       } catch (error) {
-        setError(handleApiError(error));
+        console.error('Error updating product quantity:', error);
+        throw error; // Re-throw for component to handle with toast
       }
     },
 
     updateProductVariation: async (entryId, _groupId, optionId) => {
-      const { setError, loadQuote, quote } = get();
+      const { loadQuote, quote } = get();
       if (!quote) return;
       
       try {
@@ -206,29 +197,30 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
         // Reload the quote to get updated variation state
         await loadQuote(quote.id);
       } catch (error) {
-        setError(handleApiError(error));
+        console.error('Error updating product variation:', error);
+        throw error; // Re-throw for component to handle with toast
       }
     },
 
     calculateQuote: async () => {
-      const { quote, setLoading, setError, setCalculatedQuote } = get();
+      const { quote, setLoading, setCalculatedQuote } = get();
       if (!quote) return;
 
       setLoading(true);
-      setError(null);
 
       try {
         const calculatedQuote = await apiClient.calculateQuote(quote.id);
         setCalculatedQuote(calculatedQuote);
       } catch (error) {
-        setError(handleApiError(error));
+        console.error('Error calculating quote:', error);
+        throw error; // Re-throw for component to handle with toast
       } finally {
         setLoading(false);
       }
     },
 
     removeEntry: async (entryId) => {
-      const { quote, setError } = get();
+      const { quote } = get();
       if (!quote) return;
 
       try {
@@ -241,8 +233,8 @@ export const useQuoteBuilderStore = create<QuoteBuilderStore>()(
           }
         });
       } catch (error) {
-        setError(handleApiError(error));
-        throw error;
+        console.error('Error removing entry:', error);
+        throw error; // Re-throw for component to handle with toast
       }
     },
   }))

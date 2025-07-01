@@ -8,9 +8,11 @@ if (!rootElement) {
   throw new Error("Could not find root element to mount to");
 }
 
+const useStrictMode = false; // todo move to constants
 const root = ReactDOM.createRoot(rootElement);
 root.render(
+  useStrictMode ? 
   <React.StrictMode>
     <App />
-  </React.StrictMode>
+  </React.StrictMode> : <App />  
 );

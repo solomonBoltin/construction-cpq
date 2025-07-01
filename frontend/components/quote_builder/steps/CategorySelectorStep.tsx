@@ -1,37 +1,40 @@
 
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useQuoteBuilderStore } from '../../../stores/useQuoteBuilderStore';
 import { useStepNavigation } from '../../../hooks/useStepNavigation';
 import { apiClient } from '../../../services/api';
 import { CategoryPreview } from '../../../types';
 import { FenceCategoryType } from '../../../constants';
 import GenericProductSelector from '../GenericProductSelector';
+import { useToast } from '../../../stores/useToastStore';
+import { handleApiError } from '../../../utils/errors';
+import { ComponentErrorBoundary } from '../../common/ErrorBoundary';
+import { useStepFetch } from '../../../hooks/useStepFetch';
 
-const CategorySelectorStep: React.FC = () => {
-    const { selectCategory, selectedCategoryName, isLoading: contextLoading, error: contextError } = useQuoteBuilderStore();
+const CategorySelectorStepContent: React.FC = () => {
+    const { selectCategory, selectedCategoryName, isLoading: contextLoading } = useQuoteBuilderStore();
     const { navigateAfterAction } = useStepNavigation();
+    const toast = useToast();
     const [categories, setCategories] = useState<CategoryPreview[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
     
-    useEffect(() => {
-        const fetchCategories = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                const data = await apiClient.listCategories(FenceCategoryType);
-                setCategories(data);
-            } catch (err) {
-                setError((err as Error).message);
-            } finally {
-                setIsLoading(false);
-            }
-        };
-        fetchCategories();
-    }, []);
+    useStepFetch(async () => {
+        setIsLoading(true);
+        try {
+            const data = await apiClient.listCategories(FenceCategoryType);
+            setCategories(data);
+        } catch (err) {
+            const errorMessage = handleApiError(err);
+            toast.error('Failed to load categories', errorMessage);
+            setCategories([]);
+        } finally {
+            setIsLoading(false);
+        }
+    });
 
     const handleSelectCategory = (category: CategoryPreview) => {
         selectCategory(category.name);
+        toast.success(`${category.name} category selected`);
         navigateAfterAction('categorySelected');
     };
 
@@ -44,7 +47,6 @@ const CategorySelectorStep: React.FC = () => {
                 title="Choose a Fence Category"
                 items={categories}
                 isLoading={isLoading || contextLoading}
-                error={error || contextError}
                 onSelect={handleSelectCategory}
                 selectedId={selectedCategory?.id}
                 emptyMessage="No fence categories available."
@@ -52,5 +54,11 @@ const CategorySelectorStep: React.FC = () => {
         </div>
     );
 };
+
+const CategorySelectorStep: React.FC = () => (
+    <ComponentErrorBoundary>
+        <CategorySelectorStepContent />
+    </ComponentErrorBoundary>
+);
 
 export default CategorySelectorStep;

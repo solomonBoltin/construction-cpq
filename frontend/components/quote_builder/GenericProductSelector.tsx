@@ -2,29 +2,27 @@ import React from 'react';
 import { ProductPreview, CategoryPreview } from '../../types';
 import ProductDisplayCard from './ProductDisplayCard';
 import LoadingSpinner from '../common/LoadingSpinner';
-import ErrorMessage from '../common/ErrorMessage';
+import { ComponentErrorBoundary } from '../common/ErrorBoundary';
 
 interface GenericProductSelectorProps {
   title: string;
   items: (ProductPreview | CategoryPreview)[];
   isLoading: boolean;
-  error: string | null;
+  error?: string | null; // Make optional since we're using toast-based error handling
   onSelect: (item: ProductPreview | CategoryPreview) => void;
   selectedId?: number;
   emptyMessage?: string;
 }
 
-const GenericProductSelector: React.FC<GenericProductSelectorProps> = ({
+const GenericProductSelectorContent: React.FC<GenericProductSelectorProps> = ({
   title,
   items,
   isLoading,
-  error,
   onSelect,
   selectedId,
   emptyMessage = "No items available."
 }) => {
   if (isLoading) return <LoadingSpinner />;
-  if (error) return <ErrorMessage error={error} />;
 
   return (
     <div className="fade-in">
@@ -49,5 +47,11 @@ const GenericProductSelector: React.FC<GenericProductSelectorProps> = ({
     </div>
   );
 };
+
+const GenericProductSelector: React.FC<GenericProductSelectorProps> = (props) => (
+  <ComponentErrorBoundary>
+    <GenericProductSelectorContent {...props} />
+  </ComponentErrorBoundary>
+);
 
 export default GenericProductSelector;

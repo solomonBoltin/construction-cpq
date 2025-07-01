@@ -6,24 +6,26 @@ import LoadingSpinner from '../common/LoadingSpinner';
 import Modal from '../common/Modal';
 import { QuoteType, QuotePreview } from '../../types';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '../../stores/useToastStore';
+import { handleApiError } from '../../utils/errors';
 
 const DashboardPage: React.FC = () => {
   const [quotes, setQuotes] = useState<QuotePreview[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newQuoteName, setNewQuoteName] = useState('');
   const [newQuoteDescription, setNewQuoteDescription] = useState('');
   const navigate = useNavigate();
+  const toast = useToast();
 
   const fetchQuotes = async () => {
     setIsLoading(true);
-    setError(null);
     try {
       const quotesData = await apiClient.listQuotes(QuoteType.FENCE_PROJECT);
       setQuotes(quotesData);
     } catch (err) {
-      setError((err as Error).message);
+      const errorMessage = handleApiError(err);
+      toast.error('Failed to load quotes', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -31,17 +33,18 @@ const DashboardPage: React.FC = () => {
 
   const createNewQuote = async (name: string, description: string, type: QuoteType = QuoteType.FENCE_PROJECT) => {
     setIsLoading(true);
-    setError(null);
     try {
       const newQuote = await apiClient.createQuote(name, type, description);
       await fetchQuotes(); // Refresh the list
       setIsModalOpen(false);
       setNewQuoteName('');
       setNewQuoteDescription('');
+      toast.success('Quote created successfully');
       navigate(`/quote/${newQuote.id}`);
       return newQuote.id;
     } catch (err) {
-      setError((err as Error).message);
+      const errorMessage = handleApiError(err);
+      toast.error('Failed to create quote', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -82,8 +85,6 @@ const DashboardPage: React.FC = () => {
             New Project
           </button>
         </div>
-
-        {error && <div className="mb-4 p-4 text-red-700 bg-red-100 rounded-lg">{error}</div>}
 
         {quotes.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">

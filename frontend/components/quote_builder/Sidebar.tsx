@@ -4,8 +4,9 @@ import { MaterializedProductEntry, ProductRole } from '../../types';
 import ChevronRightIcon from '../icons/ChevronRightIcon';
 import { MOCKUP_DEFAULT_IMAGE } from '../../constants';
 import { shortUnitType } from '../../utils/units';
+import { ComponentErrorBoundary } from '../common/ErrorBoundary';
 
-const Sidebar: React.FC = () => {
+const SidebarContent: React.FC = () => {
     const { quote, setStep } = useQuoteBuilderStore();
 
     if (!quote) {
@@ -95,5 +96,11 @@ const Sidebar: React.FC = () => {
         </aside>
     );
 };
+
+const Sidebar: React.FC = () => (
+    <ComponentErrorBoundary>
+        <SidebarContent />
+    </ComponentErrorBoundary>
+);
 
 export default Sidebar;

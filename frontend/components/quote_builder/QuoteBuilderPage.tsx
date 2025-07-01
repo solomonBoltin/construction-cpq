@@ -6,11 +6,10 @@ import Stepper from './Stepper';
 import StepContentRenderer from './StepContentRenderer';
 import ChevronLeftIcon from '../icons/ChevronLeftIcon';
 import LoadingSpinner from '../common/LoadingSpinner';
-import ErrorMessage from '../common/ErrorMessage';
 
 const QuoteBuilderPage: React.FC = () => {
     const { id } = useParams<{ id: string }>();
-    const { quote, loadQuote, isLoading, error, reset } = useQuoteBuilderStore();
+    const { quote, loadQuote, isLoading, reset } = useQuoteBuilderStore();
     const navigate = useNavigate();
 
     useEffect(() => {
@@ -39,20 +38,6 @@ const QuoteBuilderPage: React.FC = () => {
             <div className="h-screen flex flex-col items-center justify-center bg-slate-100 p-4">
                 <LoadingSpinner />
                 <p className="mt-4 text-slate-600">Loading quote details...</p>
-            </div>
-        );
-    }
-
-    if (error) {
-        return (
-            <div className="h-screen flex flex-col items-center justify-center bg-slate-100 p-4">
-                <ErrorMessage error={error} className="max-w-md" />
-                <button 
-                    onClick={() => navigate('/')}
-                    className="mt-4 text-blue-600 hover:text-blue-800 underline"
-                >
-                    Back to quotes
-                </button>
             </div>
         );
     }

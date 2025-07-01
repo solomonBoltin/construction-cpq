@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useQuoteBuilderStore } from '../../../stores/useQuoteBuilderStore';
 import { useStepNavigation } from '../../../hooks/useStepNavigation';
 import { useProductConfirmation, needsProductConfirmation } from '../../../hooks/useProductConfirmation';
@@ -7,50 +7,53 @@ import { ProductPreview, ProductRole, CategoryPreview } from '../../../types';
 import { GateCategoryType } from '../../../constants';
 import GenericProductSelector from '../GenericProductSelector';
 import Modal from '../../common/Modal';
+import { useToast } from '../../../stores/useToastStore';
+import { handleApiError } from '../../../utils/errors';
+import { ComponentErrorBoundary } from '../../common/ErrorBoundary';
+import { useStepFetch } from '../../../hooks/useStepFetch';
 
 interface ProductSelectorStepProps {
     role: ProductRole.MAIN | ProductRole.SECONDARY;
 }
 
-const ProductSelectorStep: React.FC<ProductSelectorStepProps> = ({ role }) => {
+const ProductSelectorStepContent: React.FC<ProductSelectorStepProps> = ({ role }) => {
     const { 
         selectProduct, 
         selectedCategoryName,
         quote,
         removeEntry,
-        isLoading: contextLoading, 
-        error: contextError
+        isLoading: contextLoading
     } = useQuoteBuilderStore();
     const { navigateAfterAction, goToStep } = useStepNavigation();
     const { isConfirmationOpen, confirmationMessage, showConfirmation, closeConfirmation, confirmAction } = useProductConfirmation();
+    const toast = useToast();
 
     const [products, setProducts] = useState<ProductPreview[]>([]);
     const [isLoading, setIsLoading] = useState(false);
-    const [error, setError] = useState<string | null>(null);
 
     const title = role === ProductRole.MAIN ? 'Select Main Fence Product' : 'Select Gate Product';
 
-    useEffect(() => {
-        const fetchProducts = async () => {
-            setIsLoading(true);
-            setError(null);
-            try {
-                let data: ProductPreview[] = [];
-                if (role === ProductRole.MAIN) {
-                    if (!selectedCategoryName) throw new Error("Please select a category first.");
-                    data = await apiClient.listProductsInCategory(selectedCategoryName);
-                } else if (role === ProductRole.SECONDARY) {
-                    data = await apiClient.listProductsByCategoryType(GateCategoryType);
-                }
-                setProducts(data);
-            } catch (err) {
-                setError((err as Error).message);
-            } finally {
-                setIsLoading(false);
+    useStepFetch(async () => {
+        setIsLoading(true);
+        try {
+            let data: ProductPreview[] = [];
+            if (role === ProductRole.MAIN) {
+                console.log("Fetching main products for category:", selectedCategoryName);
+                if (!selectedCategoryName) throw new Error("Please select a category first.");
+                data = await apiClient.listProductsInCategory(selectedCategoryName);
+            } else if (role === ProductRole.SECONDARY) {
+                data = await apiClient.listProductsByCategoryType(GateCategoryType);
             }
-        };
-        fetchProducts();
-    }, [selectedCategoryName, role]);
+            setProducts(data);
+        } catch (err) {
+            console.error('Error fetching products:', err);
+            const errorMessage = handleApiError(err);
+            toast.error('Failed to load products', errorMessage);
+            setProducts([]);
+        } finally {
+            setIsLoading(false);
+        }
+    });
 
     const handleSelectProduct = async (item: ProductPreview | CategoryPreview) => {
         // Type guard to ensure it's a ProductPreview
@@ -76,10 +79,13 @@ const ProductSelectorStep: React.FC<ProductSelectorStepProps> = ({ role }) => {
                 const productEntry = await selectProduct(item.id, role);
                 // Navigate immediately after successful product selection
                 if (productEntry) {
+                    toast.success(`${role} product selected successfully`);
                     navigateAfterAction('productSelected', role);
                 }
             } catch (error) {
-                // Error is handled by the store
+                console.error('Error selecting product:', error);
+                const errorMessage = handleApiError(error);
+                toast.error('Failed to select product', errorMessage);
             }
         }
     };
@@ -109,7 +115,6 @@ const ProductSelectorStep: React.FC<ProductSelectorStepProps> = ({ role }) => {
                     title={title}
                     items={products}
                     isLoading={isLoading || contextLoading}
-                    error={error || contextError}
                     onSelect={handleSelectProduct}
                     selectedId={selectedProduct?.id}
                     emptyMessage={`No ${role === ProductRole.MAIN ? 'fence' : 'gate'} products available.`}
@@ -142,6 +147,12 @@ const ProductSelectorStep: React.FC<ProductSelectorStepProps> = ({ role }) => {
         </>
     );
 };
+
+const ProductSelectorStep: React.FC<ProductSelectorStepProps> = (props) => (
+    <ComponentErrorBoundary>
+        <ProductSelectorStepContent {...props} />
+    </ComponentErrorBoundary>
+);
 
 export default ProductSelectorStep;
 

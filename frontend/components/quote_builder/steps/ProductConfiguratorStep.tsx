@@ -15,8 +15,7 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
         quote, 
         updateProductQuantity, 
         updateProductVariation, 
-        isLoading: contextLoading,
-        error: contextError,
+        isLoading: contextLoading
     } = useQuoteBuilderStore();
     const { goToStep } = useStepNavigation();
 
@@ -47,10 +46,8 @@ const ProductConfiguratorStep: React.FC<ProductConfiguratorStepProps> = ({ role 
     }
     
     const currentLoading = contextLoading;
-    const currentError = contextError;
 
     if (currentLoading) return <LoadingSpinner />;
-    if (currentError && !productEntry) return <div className="text-red-500 p-4 bg-red-50 rounded-md">Error: {currentError}</div>;
     if (!productEntry) {
          return <div className="text-slate-500 p-4">Select a product to configure its options.</div>;
     }
