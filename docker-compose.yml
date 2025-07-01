@@ -115,10 +115,24 @@ services:
       - traefik-network
     labels:
       - "traefik.enable=true"
+      # Localhost
       - "traefik.http.routers.cpq-frontend-local.rule=Host(`cpq-frontend.localhost`)"
       - "traefik.http.routers.cpq-frontend-local.entrypoints=web"
       - "traefik.http.routers.cpq-frontend-local.service=cpq_frontend"
-      - "traefik.http.services.cpq_frontend.loadbalancer.server.port=80"
+      # HTTP
+      - "traefik.http.routers.cpq-frontend-http.rule=Host(`${FRONTEND_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.cpq-frontend-http.entrypoints=web"
+      - "traefik.http.routers.cpq-frontend-http.service=cpq_frontend"
+      # HTTPS
+      - "traefik.http.routers.cpq-frontend-https.rule=Host(`${FRONTEND_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.cpq-frontend-https.entrypoints=websecure"
+      - "traefik.http.routers.cpq-frontend-https.tls=true"
+      - "traefik.http.routers.cpq-frontend-https.tls.certresolver=myresolver"
+      - "traefik.http.routers.cpq-frontend-https.service=cpq_frontend"
+
+      - "traefik.http.services.cpq_frontend.loadbalancer.server.port=80" 
+
+
 
   e2e_tests:
     build:
