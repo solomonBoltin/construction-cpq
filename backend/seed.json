@@ -17,42 +17,37 @@
       "name": "JPC Picket 5.5in x 6ft",
       "description": "Standard Japanese Cedar Picket",
       "cost_per_supplier_unit": 6.50,
-      "supplier_unit_type_name": "Each",
       "quantity_in_supplier_unit": 1,
-      "base_unit_type_name": "Each"
+      "unit_type_name": "Each"
     },
     {
       "name": "Postmaster Post 8ft",
       "description": "Galvanized Steel Postmaster Post, 8ft length",
       "cost_per_supplier_unit": 35.00,
-      "supplier_unit_type_name": "Each",
       "quantity_in_supplier_unit": 1,
-      "base_unit_type_name": "Each"
+      "unit_type_name": "Each"
     },
     {
       "name": "JPC 1x6x8 Raw Picket",
       "description": "Japanese Cedar Picket, 1x6x8, Raw",
       "cost_per_supplier_unit": 5.40,
-      "supplier_unit_type_name": "Each",
       "quantity_in_supplier_unit": 1,
-      "base_unit_type_name": "Each",
+      "unit_type_name": "Each",
       "cull_rate": 0.05
     },
     {
       "name": "Concrete Mix 80lb",
       "description": "Standard 80lb bag of concrete mix",
       "cost_per_supplier_unit": 7.00,
-      "supplier_unit_type_name": "Bag",
       "quantity_in_supplier_unit": 1,
-      "base_unit_type_name": "Bag"
+      "unit_type_name": "Bag"
     },
     {
       "name": "JPC Cap Board 2x4x8",
       "description": "Japanese Cedar Cap Board 2x4, 8ft long, for cap rail variation.",
       "cost_per_supplier_unit": 12.00,
-      "supplier_unit_type_name": "Each",
       "quantity_in_supplier_unit": 1,
-      "base_unit_type_name": "Each"
+      "unit_type_name": "Each"
     }
   ],
   "product_categories": [

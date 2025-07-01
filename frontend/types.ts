@@ -55,9 +55,8 @@ export interface Material {
     name: string;
     description?: string | null;
     cost_per_supplier_unit: string; // Decimal
-    supplier_unit_type_id?: number | null;
     quantity_in_supplier_unit: string; // Decimal
-    base_unit_type_id: number;
+    unit_type_id: number;
     cull_rate?: number | null; // float
 }
 

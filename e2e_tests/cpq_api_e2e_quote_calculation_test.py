@@ -20,17 +20,16 @@ def test_e2e_full_quote_calculation_scenario(client: httpx.Client):
     print("  Creating test-specific materials...")
     material1_payload = {
         "name": "Test E2E - Picket Type A", "description": "Standard wood picket",
-        "cost_per_supplier_unit": "1.50", "supplier_unit_type_id": ut_each_id,
-        "quantity_in_supplier_unit": "1", "base_unit_type_id": ut_each_id
+        "cost_per_supplier_unit": "1.50", "unit_type_id": ut_each_id,
+        "quantity_in_supplier_unit": "1"
     }
     material1 = create_entity(client, "materials", material1_payload, "material")
     material1_id = material1["id"]
 
     material2_payload = {
         "name": "Test E2E - 2x4 Rail", "description": "Pressure-treated 2x4 rail",
-        "cost_per_supplier_unit": "8.00", "supplier_unit_type_id": ut_each_id, 
-        "quantity_in_supplier_unit": "8", 
-        "base_unit_type_id": ut_lft_id 
+        "cost_per_supplier_unit": "8.00", "unit_type_id": ut_lft_id,
+        "quantity_in_supplier_unit": "8"
     }
     material2 = create_entity(client, "materials", material2_payload, "material")
     material2_id = material2["id"]

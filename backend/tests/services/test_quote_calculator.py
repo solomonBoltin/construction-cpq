@@ -48,12 +48,12 @@ def test_calculate_and_save_quote_simple_product_no_variations_no_fees(
     quote_calculator_service: QuoteCalculator, mock_session: MagicMock, D_fixture
 ):
     D = D_fixture
-    mock_base_unit_type = UnitType(id=1, name="kg", abbreviation="kg")
+    mock_unit_type = UnitType(id=1, name="kg", category="weight")
     
     mock_material_1 = Material(
         id=1, name="Steel",
         cost_per_supplier_unit=D("100"), quantity_in_supplier_unit=D("10"), 
-        base_unit_type_id=1, base_unit_type=mock_base_unit_type,
+        unit_type_id=1, unit_type=mock_unit_type,
     )
     
     mock_product_1 = Product(
@@ -122,12 +122,12 @@ def test_calculate_and_save_quote_with_sales_commission_and_margin(
     quote_calculator_service: QuoteCalculator, mock_session: MagicMock, D_fixture
 ):
     D = D_fixture
-    mock_base_unit_type = UnitType(id=1, name="item", abbreviation="item")
+    mock_unit_type = UnitType(id=1, name="item", category="count")
     
     mock_material_1 = Material(
         id=1, name="Component A",
         cost_per_supplier_unit=D("20"), quantity_in_supplier_unit=D("1"), 
-        base_unit_type_id=1, base_unit_type=mock_base_unit_type,
+        unit_type_id=1, unit_type=mock_unit_type,
     )
     
     mock_product_1 = Product(
@@ -202,9 +202,9 @@ def test_calculate_and_save_quote_with_variation_material_change(
     quote_calculator_service: QuoteCalculator, mock_session: MagicMock, D_fixture
 ):
     D = D_fixture
-    mock_base_unit_type = UnitType(id=1, name="unit", abbreviation="u")
-    mock_material_base = Material(id=1, name="Base Material", cost_per_supplier_unit=D("10"), quantity_in_supplier_unit=D("1"), base_unit_type=mock_base_unit_type)
-    mock_material_added = Material(id=2, name="Added Material", cost_per_supplier_unit=D("5"), quantity_in_supplier_unit=D("1"), base_unit_type=mock_base_unit_type)
+    mock_unit_type = UnitType(id=1, name="unit", category="general")
+    mock_material_base = Material(id=1, name="Base Material", cost_per_supplier_unit=D("10"), quantity_in_supplier_unit=D("1"), unit_type=mock_unit_type)
+    mock_material_added = Material(id=2, name="Added Material", cost_per_supplier_unit=D("5"), quantity_in_supplier_unit=D("1"), unit_type=mock_unit_type)
 
     mock_variation_option = VariationOption(
         id=1, name="Upgrade Option", additional_labor_cost_per_product_unit=D("5"),

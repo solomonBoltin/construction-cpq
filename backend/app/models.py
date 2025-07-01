@@ -140,14 +140,7 @@ class UnitTypeBase(SQLModel):
 class UnitType(UnitTypeBase, table=True):
     __tablename__ = "unit_type" # Explicitly define table name to match plan
 
-    materials_as_supplier_unit: List["Material"] = Relationship(
-        back_populates="supplier_unit_type",
-        sa_relationship_kwargs={'foreign_keys': '[Material.supplier_unit_type_id]'}
-    )
-    materials_as_base_unit: List["Material"] = Relationship(
-        back_populates="base_unit_type",
-        sa_relationship_kwargs={'foreign_keys': '[Material.base_unit_type_id]'}
-    )
+    materials: List["Material"] = Relationship(back_populates="unit_type")
     products: List["Product"] = Relationship(back_populates="product_unit_type")
 
 
@@ -179,22 +172,14 @@ class MaterialBase(SQLModel):
     name: str = Field(max_length=255, unique=True, index=True)
     description: Optional[str] = Field(default=None)
     cost_per_supplier_unit: Decimal = Field(max_digits=10, decimal_places=2)
-    supplier_unit_type_id: Optional[int] = Field(default=None, foreign_key="unit_type.id")
     quantity_in_supplier_unit: Decimal = Field(default=Decimal("1.0"), max_digits=10, decimal_places=3)
-    base_unit_type_id: int = Field(foreign_key="unit_type.id")
+    unit_type_id: int = Field(foreign_key="unit_type.id")
     cull_rate: Optional[float] = Field(default=0.0) # Added cull_rate property
 
 class Material(MaterialBase, table=True):
     __tablename__ = "material"
 
-    supplier_unit_type: Optional["UnitType"] = Relationship(
-        back_populates="materials_as_supplier_unit",
-        sa_relationship_kwargs={'foreign_keys': '[Material.supplier_unit_type_id]'}
-    )
-    base_unit_type: "UnitType" = Relationship(
-        back_populates="materials_as_base_unit",
-        sa_relationship_kwargs={'foreign_keys': '[Material.base_unit_type_id]'}
-    )
+    unit_type: "UnitType" = Relationship(back_populates="materials")
     
     product_materials: List["ProductMaterial"] = Relationship(back_populates="material")
     variation_option_materials: List["VariationOptionMaterial"] = Relationship(back_populates="material")

@@ -89,9 +89,9 @@ class QuoteCalculator:
                 for pm in product.product_materials:
                     material = pm.material
                     logger.debug(f"Processing Material ID: {material.id}, Name: {material.name}")
-                    if not material or not material.base_unit_type: # Ensure base_unit_type is loaded
-                        logger.error(f"Material or its base unit type not found for ProductMaterial ID: {pm.id}")
-                        raise ValueError(f"Material or its base unit type not found for ProductMaterial id {pm.id}")
+                    if not material or not material.unit_type: # Ensure unit_type is loaded
+                        logger.error(f"Material or its unit type not found for ProductMaterial ID: {pm.id}")
+                        raise ValueError(f"Material or its unit type not found for ProductMaterial id {pm.id}")
 
                     cost_per_base_unit = self._get_material_cost_per_base_unit(material)
                     quantity_needed_for_product = (
@@ -105,14 +105,14 @@ class QuoteCalculator:
                     
                     total_quantity_needed = quantity_needed_for_product + cull_units
 
-                    bom_key = (material.id, material.base_unit_type.name)
+                    bom_key = (material.id, material.unit_type.name)
                     if bom_key not in bill_of_materials_aggregated:
                         bill_of_materials_aggregated[bom_key] = BillOfMaterialEntry(
                             material_name=material.name,
                             quantity=Decimal(0),
                             unit_cost=cost_per_base_unit,
                             total_cost=Decimal(0),
-                            unit_name=material.base_unit_type.name,
+                            unit_name=material.unit_type.name,
                             cull_units=Decimal(0) 
                         )
                     
@@ -141,9 +141,9 @@ class QuoteCalculator:
                     # Add/modify materials based on variation
                     for vom in variation_option.variation_option_materials:
                         material = vom.material
-                        if not material or not material.base_unit_type: # Ensure base_unit_type is loaded
-                            logger.error(f"Material or its base unit type not found for VariationOptionMaterial id {vom.id}")
-                            raise ValueError(f"Material or its base unit type not found for VariationOptionMaterial id {vom.id}")
+                        if not material or not material.unit_type: # Ensure unit_type is loaded
+                            logger.error(f"Material or its unit type not found for VariationOptionMaterial id {vom.id}")
+                            raise ValueError(f"Material or its unit type not found for VariationOptionMaterial id {vom.id}")
                         
                         cost_per_base_unit = self._get_material_cost_per_base_unit(
                             material
@@ -160,14 +160,14 @@ class QuoteCalculator:
 
                         total_quantity_added_or_removed = quantity_added_or_removed_for_product + cull_units_variation
 
-                        bom_key = (material.id, material.base_unit_type.name)
+                        bom_key = (material.id, material.unit_type.name)
                         if bom_key not in bill_of_materials_aggregated:
                             bill_of_materials_aggregated[bom_key] = BillOfMaterialEntry(
                                 material_name=material.name,
                                 quantity=Decimal(0),
                                 unit_cost=cost_per_base_unit,
                                 total_cost=Decimal(0),
-                                unit_name=material.base_unit_type.name,
+                                unit_name=material.unit_type.name,
                                 cull_units=Decimal(0)
                             )
                         

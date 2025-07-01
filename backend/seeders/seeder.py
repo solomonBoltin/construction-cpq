@@ -73,11 +73,8 @@ class MaterialSeeder(BaseSeeder):
     def seed(self):
         print("Seeding Materials...")
         for mat_data in MATERIALS_DATA:
-            supplier_unit_type_id = None
-            if mat_data.get("supplier_unit_type_name"):
-                supplier_unit_type_id = self._get_unit_type_id_by_name(mat_data["supplier_unit_type_name"])
-            
-            base_unit_type_id = self._get_unit_type_id_by_name(mat_data["base_unit_type_name"])
+            # Use unit_type_name as the single unit_type
+            unit_type_id = self._get_unit_type_id_by_name(mat_data["unit_type_name"])
             
             material, created = self._get_or_create(
                 Material,
@@ -85,9 +82,8 @@ class MaterialSeeder(BaseSeeder):
                 defaults={
                     'description': mat_data.get("description"),
                     'cost_per_supplier_unit': Decimal(str(mat_data["cost_per_supplier_unit"])),
-                    'supplier_unit_type_id': supplier_unit_type_id,
                     'quantity_in_supplier_unit': Decimal(str(mat_data.get("quantity_in_supplier_unit", "1.0"))),
-                    'base_unit_type_id': base_unit_type_id,
+                    'unit_type_id': unit_type_id,
                     'cull_rate': float(mat_data.get("cull_rate", 0.0))
                 }
             )

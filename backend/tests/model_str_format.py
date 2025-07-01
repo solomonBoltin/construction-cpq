@@ -30,7 +30,7 @@ def str_format_product(product: Product, num_sections: Decimal) -> str:
         for pm in product.product_materials:
             qty_per_section = getattr(pm, 'material_amount', D('0'))
             material_name = getattr(getattr(pm, 'material', {}), 'name', 'N/A')
-            base_unit_type_name = getattr(getattr(getattr(pm, 'material', {}), 'base_unit_type', {}), 'name', 'N/A')
+            unit_type_name = getattr(getattr(getattr(pm, 'material', {}), 'unit_type', {}), 'name', 'N/A')
             cost_per_supplier_unit = getattr(getattr(pm, 'material', {}), 'cost_per_supplier_unit', D('0'))
             quantity_in_supplier_unit = getattr(getattr(pm, 'material', {}), 'quantity_in_supplier_unit', D('1'))
 
@@ -39,7 +39,7 @@ def str_format_product(product: Product, num_sections: Decimal) -> str:
                 pass # qty_per_section already set
 
             log_lines.append(
-                f"      - {material_name}: {qty_per_section} {base_unit_type_name} @ {cost_per_supplier_unit}/{quantity_in_supplier_unit} {base_unit_type_name}"
+                f"      - {material_name}: {qty_per_section} {unit_type_name} @ {cost_per_supplier_unit}/{quantity_in_supplier_unit} {unit_type_name}"
             )
 
     log_lines.append("    Variation Groups:")
@@ -58,9 +58,9 @@ def str_format_product(product: Product, num_sections: Decimal) -> str:
                         log_lines.append("          Materials Added/Modified (per section):")
                         for vom in option.variation_option_materials:
                             vom_material_name = getattr(getattr(vom, 'material', {}), 'name', 'N/A')
-                            vom_base_unit_type_name = getattr(getattr(getattr(vom, 'material', {}), 'base_unit_type', {}), 'name', 'N/A')
+                            vom_unit_type_name = getattr(getattr(getattr(vom, 'material', {}), 'unit_type', {}), 'name', 'N/A')
                             log_lines.append(
-                                f"            - {vom_material_name}: {getattr(vom, 'quantity_of_material_base_units_added', D('0'))} {vom_base_unit_type_name}"
+                                f"            - {vom_material_name}: {getattr(vom, 'quantity_of_material_base_units_added', D('0'))} {vom_unit_type_name}"
                             )
     return "\\n".join(log_lines)
 
