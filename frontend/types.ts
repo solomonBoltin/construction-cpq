@@ -85,7 +85,7 @@ export interface VariationGroup {
     id: number;
     name: string;
     product_id: number;
-    selection_type: string; // 'single_choice', 'multi_choice'
+    selection_type: 'SINGLE_SELECT' | 'MULTI_SELECT';
     is_required: boolean;
     options: VariationOption[];
 }

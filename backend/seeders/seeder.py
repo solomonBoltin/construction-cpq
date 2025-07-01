@@ -13,6 +13,7 @@ from app.models import (
     VariationOption,
     VariationOptionMaterial,
     QuoteConfig, ProductCategory, ProductProductCategoryLink,
+    VariationSelectionType,
     Quote, QuoteProductEntry, QuoteProductEntryVariation
 )
 from data.seed_data import (
@@ -187,7 +188,7 @@ class ProductSeeder(BaseSeeder):
                         product_id=product.id,
                         name=vg_data["name"],
                         defaults={
-                            'selection_type': vg_data.get("selection_type", "single_choice"),
+                            'selection_type': vg_data.get("selection_type", VariationSelectionType.SINGLE_SELECT),
                             'is_required': vg_data.get("is_required", False)
                         }
                     )

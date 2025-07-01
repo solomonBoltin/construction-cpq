@@ -102,7 +102,7 @@ PRODUCTS_DATA = [
       "variation_groups": [
         {
           "name": "Style",
-          "selection_type": "single_choice",
+          "selection_type": "SINGLE_SELECT",
           "is_required": True,
           "options": [
             {
@@ -127,7 +127,7 @@ PRODUCTS_DATA = [
         },
         {
           "name": "Add Cap Rail",
-          "selection_type": "single_choice",
+          "selection_type": "SINGLE_SELECT",
           "is_required": False,
           "options": [
             {

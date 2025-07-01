@@ -79,7 +79,7 @@
       "variation_groups": [
         {
           "name": "Style",
-          "selection_type": "single_choice",
+          "selection_type": "SINGLE_SELECT",
           "is_required": true,
           "options": [
             {
@@ -103,7 +103,7 @@
         },
         {
           "name": "Add Cap Rail",
-          "selection_type": "single_choice",
+          "selection_type": "SINGLE_SELECT",
           "is_required": false,
           "options": [
             {

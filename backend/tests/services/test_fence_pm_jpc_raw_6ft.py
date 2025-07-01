@@ -21,6 +21,7 @@ from app.models import (
     QuoteProductEntryVariation,
     VariationOptionMaterial,
     CalculatedQuote,
+    VariationSelectionType,
 )
 from app.services.quote_calculator import QuoteCalculator, final_quantize_decimal, quantize_decimal
 from tests.model_str_format import str_format_calculated_quote, str_format_quote
@@ -90,21 +91,21 @@ class TestQuoteCalculatorPostmasterHorizontalRawJPC6ft:
     @pytest.fixture
     def variation_options(self, materials, D_fixture):
         cap_group = VariationGroup(
-            id=2, name="Cap", product_id=1, selection_type="single_choice", is_required=False
+            id=2, name="Cap", product_id=1, selection_type=VariationSelectionType.SINGLE_SELECT, is_required=False
         )
         cap_yes = VariationOption(id=3, name="Yes", variation_group_id=2)
         cap_no = VariationOption(id=4, name="No", variation_group_id=2)
         cap_group.options = [cap_yes, cap_no]
 
         trim_group = VariationGroup(
-            id=3, name="Trim", product_id=1, selection_type="single_choice", is_required=False
+            id=3, name="Trim", product_id=1, selection_type=VariationSelectionType.SINGLE_SELECT, is_required=False
         )
         trim_yes = VariationOption(id=5, name="Yes", variation_group_id=3)
         trim_no = VariationOption(id=6, name="No", variation_group_id=3)
         trim_group.options = [trim_yes, trim_no]
 
         style_group = VariationGroup(
-            id=4, name="Style", product_id=1, selection_type="single_choice", is_required=True
+            id=4, name="Style", product_id=1, selection_type=VariationSelectionType.SINGLE_SELECT, is_required=True
         )
         style_sxs = VariationOption(id=7, name="SxS", variation_group_id=4)
         style_bob = VariationOption(id=8, name="B.O.B.", variation_group_id=4)

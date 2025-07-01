@@ -11,6 +11,10 @@ from sqlalchemy import Column, Enum as SAEnum, Float, ForeignKey, Integer, Strin
 
 #todo: check about using sql model enum type and sa_enum if exists and matters
 
+# Enum Definitions
+class VariationSelectionType(str, Enum):
+    SINGLE_SELECT = "SINGLE_SELECT"
+    MULTI_SELECT = "MULTI_SELECT"
 
 # Custom SQLAlchemy TypeDecorator for lists of Pydantic models
 class PydanticListJSONB(TypeDecorator):
@@ -172,7 +176,7 @@ class MaterialBase(SQLModel):
     name: str = Field(max_length=255, unique=True, index=True)
     description: Optional[str] = Field(default=None)
     cost_per_supplier_unit: Decimal = Field(max_digits=10, decimal_places=2)
-    quantity_in_supplier_unit: Decimal = Field(default=Decimal("1.0"), max_digits=10, decimal_places=3)
+    quantity_in_supplier_unit: Optional[Decimal] = Field(default=Decimal("1.0"), max_digits=10, decimal_places=3)
     unit_type_id: int = Field(foreign_key="unit_type.id")
     cull_rate: Optional[float] = Field(default=0.0) # Added cull_rate property
 
@@ -266,7 +270,13 @@ class VariationGroupBase(SQLModel):
     id: Optional[int] = Field(default=None, primary_key=True) # Moved id to top
     name: str = Field(max_length=100)
     product_id: int = Field(foreign_key="product.id")
-    selection_type: str = Field(default="single_choice", max_length=20) # 'single_choice', 'multi_choice'
+    selection_type: VariationSelectionType = Field(
+        default=VariationSelectionType.SINGLE_SELECT,
+        sa_column=Column(
+            SAEnum(VariationSelectionType),
+            default=VariationSelectionType.SINGLE_SELECT
+        )
+    )
     is_required: bool = Field(default=False)
 
 class VariationGroup(VariationGroupBase, table=True):

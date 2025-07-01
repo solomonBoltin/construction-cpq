@@ -548,8 +548,19 @@ async function runAutomation() {
                 quoteStatusEnumValues
             );
             
-
-
+            // Setting up the VariationSelectionType column in the VariationGroup table
+            const variationGroupTable = 'variation_group';
+            const variationSelectionTypeColumn = 'selection_type';
+            const variationSelectionTypeValues = ['SINGLE_SELECT', 'MULTI_SELECT'];
+            
+            await setupColumnTypeToSingleSelect(
+                CONFIG.nocodb.baseUrl,
+                apiToken,
+                baseId,
+                variationGroupTable,
+                variationSelectionTypeColumn,
+                variationSelectionTypeValues
+            );
 
 
 

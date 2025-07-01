@@ -8,7 +8,7 @@ from app.models import (
     Quote, QuoteConfig, QuoteType, Product, ProductCategory, 
     QuoteProductEntry, ProductRole, VariationGroup, VariationOption, 
     CalculatedQuote, QuoteProductEntryVariation, ProductProductCategoryLink,
-    UnitType
+    UnitType, VariationSelectionType
 )
 from app.services.quote_process import (
     QuoteProcessService, QuotePreview, CategoryPreview, ProductPreview, 
@@ -33,12 +33,12 @@ def mock_product_entry_with_variations(mock_session: MagicMock, D_fixture):
     )
     product = Product(id=100, name="Configurable Product", product_unit_type_id=1, variation_groups=[])
     product.product_unit_type = mock_unit_type  # Set the relationship
-    group_single = VariationGroup(id=10, product_id=100, name="Color", selection_type="single_choice", is_required=True, options=[])
+    group_single = VariationGroup(id=10, product_id=100, name="Color", selection_type=VariationSelectionType.SINGLE_SELECT, is_required=True, options=[])
     option_red = VariationOption(id=101, variation_group_id=10, name="Red", additional_price=D("10"), variation_group=group_single)
     option_blue = VariationOption(id=102, variation_group_id=10, name="Blue", additional_price=D("12"), variation_group=group_single)
     group_single.options = [option_red, option_blue]
 
-    group_multi = VariationGroup(id=20, product_id=100, name="Features", selection_type="multi_choice", is_required=False, options=[])
+    group_multi = VariationGroup(id=20, product_id=100, name="Features", selection_type=VariationSelectionType.MULTI_SELECT, is_required=False, options=[])
     option_gps = VariationOption(id=201, variation_group_id=20, name="GPS", additional_price=D("50"), variation_group=group_multi)
     option_wifi = VariationOption(id=202, variation_group_id=20, name="WiFi", additional_price=D("30"), variation_group=group_multi)
     group_multi.options = [option_gps, option_wifi]
@@ -483,7 +483,7 @@ class TestQuoteProcessService:
             quote_process_service.get_quote_product_entry(99)
 
     @pytest.mark.skip(reason="Incomplete test, needs proper implementation")
-    def test_set_quote_product_variation_option_single_choice_new_selection(
+    def test_set_quote_product_variation_option_single_select_new_selection(
         self, quote_process_service: QuoteProcessService, mock_session: MagicMock, 
         mock_product_entry_with_variations
     ):
@@ -515,7 +515,7 @@ class TestQuoteProcessService:
         mock_session.refresh.assert_called_with(entry)
 
     @pytest.mark.skip(reason="Incomplete test, needs proper implementation")
-    def test_set_quote_product_variation_option_single_choice_replace_existing(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, mock_product_entry_with_variations):
+    def test_set_quote_product_variation_option_single_select_replace_existing(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, mock_product_entry_with_variations):
         entry, product, group_single, option_red, option_blue, _, _, _ = mock_product_entry_with_variations
         product_entry_id = entry.id
         variation_option_id_to_set = option_blue.id
@@ -545,7 +545,7 @@ class TestQuoteProcessService:
         mock_session.commit.assert_called_once()
         mock_session.refresh.assert_called_with(entry)
 
-    def test_set_quote_product_variation_option_multi_choice_deselect_option(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, mock_product_entry_with_variations):
+    def test_set_quote_product_variation_option_multi_select_deselect_option(self, quote_process_service: QuoteProcessService, mock_session: MagicMock, mock_product_entry_with_variations):
         entry, product, _, _, _, group_multi, option_gps, _ = mock_product_entry_with_variations
         product_entry_id = entry.id
         variation_option_id_to_deselect = option_gps.id
@@ -572,7 +572,7 @@ class TestQuoteProcessService:
         refreshed_materialized_result = quote_process_service._materialize_product_entry(entry)
         assert not any(opt.id == option_gps.id and opt.is_selected for grp in refreshed_materialized_result.variation_groups if grp.id == group_multi.id for opt in grp.options)
 
-    def test_set_quote_product_variation_option_multi_choice_select_second_option(
+    def test_set_quote_product_variation_option_multi_select_select_second_option(
         self, quote_process_service: QuoteProcessService, mock_session: MagicMock,
         mock_product_entry_with_variations
     ):

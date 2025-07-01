@@ -60,7 +60,7 @@ def test_e2e_full_quote_calculation_scenario(client: httpx.Client):
 
     # --- 5. Create Variation Group for Product ---
     print("  Creating variation group 'Fence Style'...")
-    vg_payload = {"product_id": product_id, "name": "Test E2E - Fence Style", "selection_type": "single_choice", "is_required": True}
+    vg_payload = {"product_id": product_id, "name": "Test E2E - Fence Style", "selection_type": "SINGLE_SELECT", "is_required": True}
     vg = create_entity(client, "variation_groups", vg_payload, "variation_group")
     vg_id = vg["id"]
 

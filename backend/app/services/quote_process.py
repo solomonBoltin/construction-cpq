@@ -23,6 +23,7 @@ from app.models import (
     VariationOption,
     QuoteProductEntryVariation,
     CalculatedQuote,
+    VariationSelectionType,
     QuoteConfig,
     ProductProductCategoryLink, # Added ProductProductCategoryLink
 )
@@ -84,7 +85,7 @@ class VariationGroupView(BaseModel):
     
     id: int
     name: str
-    selection_type: str
+    selection_type: VariationSelectionType
     is_required: bool
     options: List[VariationOptionView]
 
@@ -474,7 +475,7 @@ class QuoteProcessService:
         
         try:
             # If single choice, remove any other selections in the same group
-            if group.selection_type == "single_choice":
+            if group.selection_type == VariationSelectionType.SINGLE_SELECT:
                 statement = select(QuoteProductEntryVariation).where(
                     QuoteProductEntryVariation.quote_product_entry_id == product_entry_id
                 ).join(VariationOption).where(
@@ -491,7 +492,7 @@ class QuoteProcessService:
                 )
                 self.session.add(new_selection)
 
-            elif group.selection_type == "multi_choice":
+            elif group.selection_type == VariationSelectionType.MULTI_SELECT:
                 # Check if this specific option is already selected
                 statement = select(QuoteProductEntryVariation).where(
                     QuoteProductEntryVariation.quote_product_entry_id == product_entry_id,
