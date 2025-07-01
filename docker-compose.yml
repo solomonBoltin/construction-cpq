@@ -110,7 +110,7 @@ services:
     container_name: cpq_frontend
     restart: unless-stopped
     ports:
-      - "3000:80"
+      - "${FRONTEND_PORT}:80"
     networks:
       - traefik-network
     labels:
