@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
 import logging
@@ -53,6 +53,16 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan
 )
+
+async def catch_exceptions_middleware(request: Request, call_next):
+    try:
+        return await call_next(request)
+    except Exception:
+        # you probably want some kind of logging here
+        return Response("Internal server error", status_code=500)
+
+
+app.middleware('http')(catch_exceptions_middleware)
 
 app.add_middleware(
     CORSMiddleware,
