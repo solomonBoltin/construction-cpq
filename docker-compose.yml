@@ -155,37 +155,6 @@ services:
     deploy:
       replicas: 0
       
-
-  e2e:
-    build:
-      context: ./e2e
-      dockerfile: Dockerfile
-    container_name: cpq_e2e_client
-    depends_on:
-      backend:
-        condition: service_healthy
-      cpq_nocodb_app:
-        condition: service_healthy
-      nocodb_base_setup:
-        condition: service_completed_successfully
-    environment:
-      - NOCODB_BASE_URL=http://cpq_nocodb_app:8080
-    volumes:
-      - ./generated:/app/generated
-    networks:
-      - traefik-network
-    restart: "no"
-    # ["npm install ./generated/generated-client && node main.js"]
-    # command: ["sh", "-c", "npm install ./generated/generated-client && node main.js"]
-    command: >
-      sh -c "
-        echo 'Backend should be up, and client should be generated. Starting to install generated client...' &&
-        npm install ./generated/generated-client && 
-        node main.js
-      "
-    deploy:
-      replicas: 0
-
   cpq_nocodb_app:
     image: nocodb/nocodb:latest
     container_name: cpq_nocodb_app
