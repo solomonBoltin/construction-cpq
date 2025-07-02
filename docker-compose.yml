@@ -89,16 +89,17 @@ services:
       - "traefik.http.routers.cpq-backend-local.entrypoints=web"
       - "traefik.http.routers.cpq-backend-local.service=cpq_backend_api"
       # HTTP
-      - "traefik.http.routers.cpq-backend-http.rule=Host(`${BACKEND_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.cpq-backend-http.rule=Host(`${CPQ_PUBLIC_DOMAIN}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.cpq-backend-http.entrypoints=web"
       - "traefik.http.routers.cpq-backend-http.service=cpq_backend_api"
 
       # HTTPS
-      - "traefik.http.routers.cpq-backend-https.rule=Host(`${BACKEND_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.cpq-backend-https.rule=Host(`${CPQ_PUBLIC_DOMAIN}`) && PathPrefix(`/api`)"
       - "traefik.http.routers.cpq-backend-https.entrypoints=websecure"
       - "traefik.http.routers.cpq-backend-https.tls=true"
       - "traefik.http.routers.cpq-backend-https.tls.certresolver=myresolver"
       - "traefik.http.routers.cpq-backend-https.service=cpq_backend_api"
+
       - "traefik.http.services.cpq_backend_api.loadbalancer.server.port=${BACKEND_PORT}"
       # This is the port the backend listens on inside the container, not the host port
 
@@ -107,6 +108,7 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+
     container_name: cpq_frontend
     restart: unless-stopped
     ports:
@@ -115,23 +117,22 @@ services:
       - traefik-network
     labels:
       - "traefik.enable=true"
-      # Localhost
+      # Localhost 
       - "traefik.http.routers.cpq-frontend-local.rule=Host(`cpq-frontend.localhost`)"
       - "traefik.http.routers.cpq-frontend-local.entrypoints=web"
       - "traefik.http.routers.cpq-frontend-local.service=cpq_frontend"
-      # HTTP
-      - "traefik.http.routers.cpq-frontend-http.rule=Host(`${FRONTEND_PUBLIC_DOMAIN}`)"
+      # HTTP path != api
+      - "traefik.http.routers.cpq-frontend-http.rule=Host(`${CPQ_PUBLIC_DOMAIN}`) && !PathPrefix(`/api`)"
       - "traefik.http.routers.cpq-frontend-http.entrypoints=web"
       - "traefik.http.routers.cpq-frontend-http.service=cpq_frontend"
       # HTTPS
-      - "traefik.http.routers.cpq-frontend-https.rule=Host(`${FRONTEND_PUBLIC_DOMAIN}`)"
+      - "traefik.http.routers.cpq-frontend-https.rule=Host(`${CPQ_PUBLIC_DOMAIN}`) && !PathPrefix(`/api`)"
       - "traefik.http.routers.cpq-frontend-https.entrypoints=websecure"
       - "traefik.http.routers.cpq-frontend-https.tls=true"
       - "traefik.http.routers.cpq-frontend-https.tls.certresolver=myresolver"
       - "traefik.http.routers.cpq-frontend-https.service=cpq_frontend"
 
       - "traefik.http.services.cpq_frontend.loadbalancer.server.port=80" 
-
 
 
   e2e_tests:
@@ -184,7 +185,7 @@ services:
       - "traefik.enable=true"
 
       # Localhost 
-      - "traefik.http.routers.cpq-local.rule=Host(`${NC_LOCAL_URL}`)"
+      - "traefik.http.routers.cpq-local.rule=Host(`cpq-nc.localhost`)"
       - "traefik.http.routers.cpq-local.entrypoints=web"
       - "traefik.http.routers.cpq-local.service=cpq_nocodb_app"
 

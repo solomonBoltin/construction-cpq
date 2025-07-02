@@ -1,5 +1,11 @@
-export const API_DOMAIN = "http://localhost:8000"; // From user plan
-export const API_BASE_URL = API_DOMAIN + "/api/v1"; // From user plan
+
+// Keep vite_ prefix cause vite maps only to env variables that start with vite_
+const VITE_CUSTOM_API_DOMAIN = import.meta.env.VITE_CUSTOM_API_DOMAIN || ""; 
+console.log("VITE_CUSTOM_API_DOMAIN:", VITE_CUSTOM_API_DOMAIN);
+
+// Constructing the API base URL from custom domain or defaulting to the frontends domain by leaving it empty
+export const API_BASE_URL = (VITE_CUSTOM_API_DOMAIN || "" ) + "/api/v1"; // From user plan
+console.log("API_BASE_URL:", API_BASE_URL);
 
 export const DEFAULT_QUOTE_CONFIG_ID = 1;
 

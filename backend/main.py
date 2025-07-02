@@ -51,7 +51,10 @@ app = FastAPI(
     title="Construction CPQ API",
     description="API for managing construction quotes, products, materials, and variations.",
     version="0.1.0",
-    lifespan=lifespan
+    lifespan=lifespan,
+    docs_url="/api/docs",
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 async def catch_exceptions_middleware(request: Request, call_next):
