@@ -53,7 +53,7 @@ def test_calculate_and_save_quote_simple_product_no_variations_no_fees(
     mock_material_1 = Material(
         id=1, name="Steel",
         cost_per_supplier_unit=D("100"), quantity_in_supplier_unit=D("10"), 
-        unit_type_id=1, unit_type=mock_unit_type,
+        unit_type=mock_unit_type,
     )
     
     mock_product_1 = Product(
@@ -85,6 +85,7 @@ def test_calculate_and_save_quote_simple_product_no_variations_no_fees(
         product_entries=[mock_quote_entry_1],
     )
 
+    
     mock_session.get.return_value = mock_quote
     
     calculated_quote_result = quote_calculator_service.calculate_and_save_quote(quote_id=1, session=mock_session)

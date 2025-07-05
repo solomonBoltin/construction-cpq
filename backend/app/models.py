@@ -177,17 +177,16 @@ class MaterialBase(SQLModel):
     description: Optional[str] = Field(default=None)
     cost_per_supplier_unit: Decimal = Field(max_digits=10, decimal_places=2)
     quantity_in_supplier_unit: Optional[Decimal] = Field(default=Decimal("1.0"), max_digits=10, decimal_places=3)
-    unit_type_id: int = Field(foreign_key="unit_type.id")
+    unit_type_id: Optional[int] = Field(default=1, foreign_key="unit_type.id")
     cull_rate: Optional[float] = Field(default=0.0) # Added cull_rate property
 
 class Material(MaterialBase, table=True):
     __tablename__ = "material"
 
-    unit_type: "UnitType" = Relationship(back_populates="materials")
+    unit_type: Optional["UnitType"] = Relationship(back_populates="materials")
     
     product_materials: List["ProductMaterial"] = Relationship(back_populates="material")
     variation_option_materials: List["VariationOptionMaterial"] = Relationship(back_populates="material")
-    cull_rate: Optional[float] = Field(default=0.0) # Added cull_rate property
 
 
 class ProductBase(SQLModel):
