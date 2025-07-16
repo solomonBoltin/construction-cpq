@@ -13,7 +13,8 @@ from app.api import (
     quotes,
     quote_product_entries,
     quote_product_entry_variations,
-    quote_process # Added quote_process router
+    quote_process, # Added quote_process router
+    pdf_generation # Added pdf_generation router
 )
 
 router = APIRouter()
@@ -31,6 +32,7 @@ router.include_router(quotes.router)
 router.include_router(quote_product_entries.router)
 router.include_router(quote_product_entry_variations.router)
 router.include_router(quote_process.router) # Added quote_process router
+router.include_router(pdf_generation.router) # Added pdf_generation router
 
 # Placeholder for other CRUD operations (PUT, DELETE) and more complex endpoints
 # These will be added as development progresses.

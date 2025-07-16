@@ -165,4 +165,32 @@ export const quoteProcessClient = {
         });
         return handleResponse<Quote>(response);
     },
+
+    generateQuotePDF: async (quoteId: number): Promise<Blob> => {
+        const response = await fetch(`${API_BASE_URL}/pdf/quotes/${quoteId}`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/pdf',
+            },
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `PDF generation failed with status ${response.status}`);
+        }
+        return response.blob();
+    },
+
+    generateQuotePDFInline: async (quoteId: number): Promise<Blob> => {
+        const response = await fetch(`${API_BASE_URL}/pdf/quotes/${quoteId}/inline`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/pdf',
+            },
+        });
+        if (!response.ok) {
+            const errorData = await response.json().catch(() => ({ detail: response.statusText }));
+            throw new Error(errorData.detail || `PDF generation failed with status ${response.status}`);
+        }
+        return response.blob();
+    },
 };

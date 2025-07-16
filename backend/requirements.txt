@@ -8,3 +8,4 @@ pydantic-settings
 pytest
 httpx
 pytest-mock
+reportlab
