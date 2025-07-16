@@ -9,3 +9,10 @@ venv/
 backend/.venv/
 backend/venv/
 .env
+
+# Screenshot testing artifacts
+screenshots/
+**/screenshots/
+**/test-results/
+**/playwright-report/
+playwright-report/

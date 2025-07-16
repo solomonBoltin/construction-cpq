@@ -1,0 +1,183 @@
+name: Screenshot Report
+
+on:
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  screenshot-report:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm install
+      working-directory: ./frontend
+        
+    - name: Install Playwright
+      run: npx playwright install --with-deps
+      working-directory: ./frontend
+    
+    - name: Create .env file
+      run: |
+        cat > .env << 'EOF'
+        POSTGRES_USER=cpq_user
+        POSTGRES_PASSWORD=cpq_password
+        POSTGRES_DB=cpq_db
+        POSTGRES_PORT=5432
+        BACKEND_PORT=8000
+        FRONTEND_PORT=3000
+        NC_PORT=8080
+        NC_AUTH_JWT_SECRET=test_jwt_secret
+        NC_PUBLIC_URL=nocodb.localhost
+        NC_ADMIN_EMAIL=admin@test.com
+        NC_ADMIN_PASSWORD=admin_password
+        CPQ_PUBLIC_DOMAIN=cpq.localhost
+        BASE_TITLE=Base1
+        SOURCE_TITLE=Base1 PG Source
+        TRAEFIK_REPLICAS=0
+        TRAEFIK_LOG_LEVEL=INFO
+        EOF
+    
+    - name: Create external network
+      run: docker network create traefik-network
+      
+    - name: Create screenshots directory
+      run: mkdir -p screenshots
+    
+    - name: Build and start services
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d cpq_db backend frontend
+        sleep 45
+        
+    - name: Wait for services to be ready
+      run: |
+        timeout 120 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
+        timeout 120 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
+        
+    - name: Run E2E tests with screenshots
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.ci.yml up --build e2e_tests
+        
+    - name: Run Playwright screenshot tests
+      run: |
+        npm run test:screenshots
+      working-directory: ./frontend
+      continue-on-error: true
+      
+    - name: Upload screenshots as artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: screenshots-${{ github.run_number }}
+        path: |
+          screenshots/
+          frontend/screenshots/
+          frontend/test-results/
+        retention-days: 30
+        
+    - name: Upload Playwright Report
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: playwright-report-${{ github.run_number }}
+        path: frontend/playwright-report/
+        retention-days: 30
+        
+    - name: Create screenshot summary
+      if: always()
+      run: |
+        echo "# Screenshot Report" > screenshot_summary.md
+        echo "" >> screenshot_summary.md
+        echo "## Test Results" >> screenshot_summary.md
+        echo "Screenshots have been generated for this PR and are available as artifacts." >> screenshot_summary.md
+        echo "" >> screenshot_summary.md
+        echo "### Available Screenshots:" >> screenshot_summary.md
+        
+        # List screenshots from E2E tests
+        if [ -d "screenshots" ]; then
+          echo "#### E2E Test Screenshots:" >> screenshot_summary.md
+          for file in screenshots/*.png; do
+            if [ -f "$file" ]; then
+              echo "- $(basename "$file")" >> screenshot_summary.md
+            fi
+          done
+        fi
+        
+        # List screenshots from Playwright tests
+        if [ -d "frontend/screenshots" ]; then
+          echo "#### Playwright Test Screenshots:" >> screenshot_summary.md
+          for file in frontend/screenshots/*.png; do
+            if [ -f "$file" ]; then
+              echo "- $(basename "$file")" >> screenshot_summary.md
+            fi
+          done
+        fi
+        
+        echo "" >> screenshot_summary.md
+        echo "### How to View Screenshots:" >> screenshot_summary.md
+        echo "1. Go to the **Actions** tab in this repository" >> screenshot_summary.md
+        echo "2. Click on this workflow run" >> screenshot_summary.md
+        echo "3. Download the \`screenshots-${{ github.run_number }}\` or \`playwright-report-${{ github.run_number }}\` artifacts" >> screenshot_summary.md
+        echo "4. Extract and view the PNG files" >> screenshot_summary.md
+        
+        # Add artifact links
+        echo "" >> screenshot_summary.md
+        echo "### Artifact Links:" >> screenshot_summary.md
+        echo "- [Download Screenshots](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> screenshot_summary.md
+        echo "- [Download Playwright Report](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> screenshot_summary.md
+        
+    - name: Comment PR with screenshot report
+      uses: actions/github-script@v7
+      if: always()
+      with:
+        script: |
+          const fs = require('fs');
+          const path = 'screenshot_summary.md';
+          if (fs.existsSync(path)) {
+            const summary = fs.readFileSync(path, 'utf8');
+            
+            // Find existing comment
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            
+            const existingComment = comments.find(comment => 
+              comment.body.includes('# Screenshot Report')
+            );
+            
+            if (existingComment) {
+              // Update existing comment
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existingComment.id,
+                body: summary
+              });
+            } else {
+              // Create new comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: summary
+              });
+            }
+          }
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+        docker network rm traefik-network || true

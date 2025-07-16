@@ -1,0 +1,171 @@
+name: Manual Screenshot Test
+
+on:
+  workflow_dispatch:
+    inputs:
+      test_type:
+        description: 'Type of screenshot test to run'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - e2e-only
+          - playwright-only
+      browser:
+        description: 'Browser to use for Playwright tests'
+        required: false
+        default: 'chromium'
+        type: choice
+        options:
+          - chromium
+          - firefox
+          - webkit
+          - all
+
+jobs:
+  manual-screenshot-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '18'
+        
+    - name: Install dependencies
+      run: npm install
+      working-directory: ./frontend
+      
+    - name: Install Playwright
+      run: npx playwright install --with-deps
+      working-directory: ./frontend
+    
+    - name: Create .env file
+      run: |
+        cat > .env << 'EOF'
+        POSTGRES_USER=cpq_user
+        POSTGRES_PASSWORD=cpq_password
+        POSTGRES_DB=cpq_db
+        POSTGRES_PORT=5432
+        BACKEND_PORT=8000
+        FRONTEND_PORT=3000
+        NC_PORT=8080
+        NC_AUTH_JWT_SECRET=manual_test_secret
+        NC_PUBLIC_URL=nocodb.localhost
+        NC_ADMIN_EMAIL=admin@test.com
+        NC_ADMIN_PASSWORD=admin_password
+        CPQ_PUBLIC_DOMAIN=cpq.localhost
+        BASE_TITLE=Base1
+        SOURCE_TITLE=Base1 PG Source
+        TRAEFIK_REPLICAS=0
+        TRAEFIK_LOG_LEVEL=INFO
+        EOF
+    
+    - name: Create external network
+      run: docker network create traefik-network
+      
+    - name: Create screenshots directory
+      run: mkdir -p screenshots
+    
+    - name: Build and start services
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.ci.yml up -d cpq_db backend frontend
+        sleep 45
+        
+    - name: Wait for services to be ready
+      run: |
+        timeout 120 bash -c 'until curl -f http://localhost:8000/health; do sleep 2; done'
+        timeout 120 bash -c 'until curl -f http://localhost:3000; do sleep 2; done'
+        
+    - name: Run E2E tests with screenshots
+      if: ${{ inputs.test_type == 'all' || inputs.test_type == 'e2e-only' }}
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.ci.yml up --build e2e_tests
+      continue-on-error: true
+        
+    - name: Run Playwright screenshot tests (specific browser)
+      if: ${{ (inputs.test_type == 'all' || inputs.test_type == 'playwright-only') && inputs.browser != 'all' }}
+      run: |
+        npx playwright test --project=${{ inputs.browser }}
+      working-directory: ./frontend
+      continue-on-error: true
+      
+    - name: Run Playwright screenshot tests (all browsers)
+      if: ${{ (inputs.test_type == 'all' || inputs.test_type == 'playwright-only') && inputs.browser == 'all' }}
+      run: |
+        npm run test:screenshots
+      working-directory: ./frontend
+      continue-on-error: true
+      
+    - name: Generate test summary
+      run: |
+        echo "# Manual Screenshot Test Results" > test_summary.md
+        echo "" >> test_summary.md
+        echo "**Test Type:** ${{ inputs.test_type }}" >> test_summary.md
+        echo "**Browser:** ${{ inputs.browser }}" >> test_summary.md
+        echo "**Triggered by:** @${{ github.actor }}" >> test_summary.md
+        echo "**Run ID:** ${{ github.run_id }}" >> test_summary.md
+        echo "" >> test_summary.md
+        
+        # Count screenshots
+        e2e_count=$(find screenshots -name "*.png" 2>/dev/null | wc -l || echo "0")
+        playwright_count=$(find frontend/screenshots -name "*.png" 2>/dev/null | wc -l || echo "0")
+        
+        echo "## Results Summary" >> test_summary.md
+        echo "- E2E Screenshots: $e2e_count files" >> test_summary.md
+        echo "- Playwright Screenshots: $playwright_count files" >> test_summary.md
+        echo "" >> test_summary.md
+        
+        if [ -d "screenshots" ] && [ "$e2e_count" -gt 0 ]; then
+          echo "### E2E Screenshots:" >> test_summary.md
+          for file in screenshots/*.png; do
+            if [ -f "$file" ]; then
+              echo "- $(basename "$file")" >> test_summary.md
+            fi
+          done
+          echo "" >> test_summary.md
+        fi
+        
+        if [ -d "frontend/screenshots" ] && [ "$playwright_count" -gt 0 ]; then
+          echo "### Playwright Screenshots:" >> test_summary.md
+          for file in frontend/screenshots/*.png; do
+            if [ -f "$file" ]; then
+              echo "- $(basename "$file")" >> test_summary.md
+            fi
+          done
+        fi
+        
+    - name: Upload all screenshots
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: manual-screenshots-${{ inputs.test_type }}-${{ inputs.browser }}-${{ github.run_number }}
+        path: |
+          screenshots/
+          frontend/screenshots/
+          frontend/test-results/
+          frontend/playwright-report/
+          test_summary.md
+        retention-days: 7
+        
+    - name: Display summary
+      if: always()
+      run: |
+        echo "## Manual Screenshot Test Completed"
+        echo "Test Type: ${{ inputs.test_type }}"
+        echo "Browser: ${{ inputs.browser }}"
+        echo ""
+        if [ -f "test_summary.md" ]; then
+          cat test_summary.md
+        fi
+        echo ""
+        echo "Download artifacts from: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+        
+    - name: Cleanup
+      if: always()
+      run: |
+        docker compose -f docker-compose.yml -f docker-compose.ci.yml down -v
+        docker network rm traefik-network || true

@@ -151,6 +151,9 @@ services:
       # Potentially other env vars needed by tests, like API keys if any in future
     env_file:
       - .env # So tests can access POSTGRES_USER/PASSWORD if direct DB interaction for cleanup was ever chosen (not current plan)
+    # Mount screenshots directory for artifact collection
+    volumes:
+      - ./screenshots:/app/screenshots
     # Simplified command to just run pytest
     command: >
       sh -c "
