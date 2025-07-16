@@ -10,9 +10,11 @@ backend/.venv/
 backend/venv/
 .env
 
-# Screenshot testing artifacts
+# Screenshot testing artifacts (but not test files)
 screenshots/
-**/screenshots/
 **/test-results/
 **/playwright-report/
 playwright-report/
+# Allow test files but ignore generated screenshots
+frontend/screenshots/
+e2e_tests/screenshots/
