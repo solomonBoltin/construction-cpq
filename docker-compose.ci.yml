@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  # Override for CI environments
+  cpq_traefik:
+    deploy:
+      replicas: 0  # Disable Traefik in CI
+
+  cpq_nocodb_app:
+    deploy:
+      replicas: 0  # Disable NocoDb in CI
+
+  nocodb_base_setup:
+    deploy:
+      replicas: 0  # Disable NocoDb setup in CI
+
+  e2e_tests:
+    deploy:
+      replicas: 1  # Enable E2E tests in CI
+    depends_on:
+      backend:
+        condition: service_healthy
+      cpq_db:
+        condition: service_healthy
+      frontend:
+        condition: service_started
+    environment:
+      - BACKEND_BASE_URL=http://backend:${BACKEND_PORT}/api/v1
+      - FRONTEND_BASE_URL=http://frontend:80
+    volumes:
+      - ./screenshots:/app/screenshots
+    command: >
+      sh -c "
+        echo 'Waiting for services to be ready...' &&
+        sleep 10 &&
+        echo 'Running E2E tests with screenshots...' &&
+        pytest . -v -s --tb=short
+      "
