@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useRef } from 'react';
 import { useQuoteBuilderStore } from '../../../stores/useQuoteBuilderStore';
 import LoadingSpinner from '../../common/LoadingSpinner';
 import { ComponentErrorBoundary } from '../../common/ErrorBoundary';
 import { useToast } from '../../../stores/useToastStore';
 import { handleApiError } from '../../../utils/errors';
+import { generateQuotePDF } from '../../../utils/pdfExport';
 
 const ReviewStepContent: React.FC = () => {
     const { 
@@ -14,6 +15,7 @@ const ReviewStepContent: React.FC = () => {
         isLoading
     } = useQuoteBuilderStore();
     const toast = useToast();
+    const pdfRef = useRef<HTMLDivElement>(null);
 
     // Don't auto-calculate - let the user manually trigger calculation
     const handleCalculateQuote = async () => {
@@ -37,6 +39,21 @@ const ReviewStepContent: React.FC = () => {
                 const errorMessage = handleApiError(err);
                 toast.error('Failed to finalize quote', errorMessage);
             }
+        }
+    };
+
+    const handleGeneratePDF = async () => {
+        if (!pdfRef.current || !quote) {
+            toast.error('Unable to generate PDF', 'Quote data is not available');
+            return;
+        }
+
+        try {
+            await generateQuotePDF(pdfRef.current, quote.name || 'Quote');
+            toast.success('PDF generated successfully');
+        } catch (err) {
+            const errorMessage = handleApiError(err);
+            toast.error('Failed to generate PDF', errorMessage);
         }
     };
 
@@ -67,17 +84,28 @@ const ReviewStepContent: React.FC = () => {
                     : 'Review the project items and calculated estimate.'}
             </p>
 
-            <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-2xl mx-auto">
+            <div className="bg-white p-6 sm:p-8 rounded-lg shadow-md max-w-2xl mx-auto" ref={pdfRef}>
                 <h3 className="text-xl font-bold text-slate-800 mb-6 text-center">
                     {quote.name || "Project"} - Estimate
                 </h3>
+                
+                {/* Project Details Section */}
+                <div className="space-y-2 mb-6">
+                    <h4 className="font-semibold text-slate-700 mb-3 border-b pb-2">Project Details:</h4>
+                    <div className="text-sm text-slate-600 space-y-1">
+                        <p><strong>Project Type:</strong> {quote.quote_type}</p>
+                        <p><strong>Status:</strong> {quote.status}</p>
+                        {quote.description && <p><strong>Description:</strong> {quote.description}</p>}
+                        <p><strong>Date:</strong> {new Date(quote.updated_at).toLocaleDateString()}</p>
+                    </div>
+                </div>
                 
                 <div className="space-y-2 mb-6">
                     <h4 className="font-semibold text-slate-700 mb-3 border-b pb-2">Project Items:</h4>
                     {quote.product_entries.length > 0 ? (
                         quote.product_entries.map(entry => (
                             <div key={entry.id} className="text-sm text-slate-600 py-1 flex justify-between">
-                                <span>{entry.quantity_of_product_units} x Product ID {entry.product_id}</span> 
+                                <span>{entry.quantity_of_product_units} {entry.product_unit || 'x'} - {entry.product_name || `Product ID ${entry.product_id}`}</span> 
                                 <span className="italic capitalize">({entry.role?.toString().toLowerCase() || 'unknown'})</span>
                             </div>
                         ))
@@ -128,22 +156,33 @@ const ReviewStepContent: React.FC = () => {
                     )
                 )}
                 
-                <div className="mt-8 text-center">
-                   <button 
-                    onClick={handleFinalizeQuote}
-                    disabled={!calculatedQuote || isLoading || quote?.status === 'FINAL'}
-                    className="bg-green-600 text-white font-bold py-3 px-8 rounded-lg shadow-lg hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                   >
-                     {quote?.status === 'FINAL' 
-                       ? 'Project Finalized' 
-                       : isLoading 
-                         ? 'Finalizing...' 
-                         : 'Finalize Project'}
-                    </button>
+                <div className="mt-8 text-center space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <button 
+                            onClick={handleGeneratePDF}
+                            disabled={isLoading}
+                            className="bg-blue-600 text-white font-semibold py-2 px-6 rounded-lg shadow-md hover:bg-blue-700 transition-colors disabled:opacity-50"
+                        >
+                            {isLoading ? 'Generating...' : 'Generate PDF'}
+                        </button>
+                        
+                        <button 
+                            onClick={handleFinalizeQuote}
+                            disabled={!calculatedQuote || isLoading || quote?.status === 'FINAL'}
+                            className="bg-green-600 text-white font-bold py-2 px-6 rounded-lg shadow-md hover:bg-green-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                            {quote?.status === 'FINAL' 
+                                ? 'Project Finalized' 
+                                : isLoading 
+                                    ? 'Finalizing...' 
+                                    : 'Finalize Project'}
+                        </button>
+                    </div>
+                    
                     {quote?.status === 'FINAL' && (
-                      <p className="text-sm text-green-600 mt-2 font-medium">
-                        This quote has been finalized and is now read-only.
-                      </p>
+                        <p className="text-sm text-green-600 font-medium">
+                            This quote has been finalized and is now read-only.
+                        </p>
                     )}
                 </div>
             </div>
