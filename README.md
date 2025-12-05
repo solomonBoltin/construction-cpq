@@ -38,7 +38,7 @@ The system consists of three main components:
 ### Prerequisites
 - Docker and Docker Compose
 - Git
-- Node.js 18+ (for local frontend development)
+- Node.js 20+ (for local frontend development)
 - Python 3.11+ (for local backend development)
 
 ### Environment Setup
@@ -58,10 +58,10 @@ The system consists of three main components:
 3. **Start the application**
    ```bash
    # Reset environment (remove existing containers and volumes)
-   docker-compose down -v
+   docker compose down -v
    
    # Build and start all services
-   docker-compose up --build -d
+   docker compose up --build -d
    ```
 
 4. **Access the services**
@@ -75,22 +75,22 @@ The system consists of three main components:
 #### Backend Tests
 ```bash
 # Run all backend tests
-docker-compose exec backend pytest
+docker compose exec backend pytest
 
 # Run specific test file
-docker-compose exec backend pytest tests/services/test_quote_calculator.py
+docker compose exec backend pytest tests/services/test_quote_calculator.py
 
 # Run with coverage
-docker-compose exec backend pytest --cov=app tests/
+docker compose exec backend pytest --cov=app tests/
 ```
 
 #### End-to-End Tests
 ```bash
 # Run E2E tests
-docker-compose up --build -d e2e_tests
+docker compose up --build -d e2e_tests
 
 # Check E2E test logs
-docker-compose logs e2e_tests
+docker compose logs e2e_tests
 ```
 
 #### Frontend Tests
@@ -196,7 +196,7 @@ The application uses PostgreSQL with the following main entities:
 ### Seeding Data
 ```bash
 # Reset and seed database
-docker-compose exec backend python seed.py
+docker compose exec backend python seed.py
 ```
 
 ## 🔐 Environment Variables
@@ -235,7 +235,7 @@ CPQ_PUBLIC_DOMAIN=cpq.example.com
 3. **Configure SSL certificates** in `./certs` directory
 4. **Run production build**:
    ```bash
-   docker-compose up -d --build
+   docker compose up -d --build
    ```
 
 ### Docker Services
@@ -283,23 +283,23 @@ See the [Issues](https://github.com/solomonBoltin/construction-cpq/issues) page 
 **Database connection errors**
 ```bash
 # Check database is running
-docker-compose ps cpq_db
+docker compose ps cpq_db
 
 # Check database logs
-docker-compose logs cpq_db
+docker compose logs cpq_db
 
 # Reset database
-docker-compose down -v
-docker-compose up -d cpq_db
+docker compose down -v
+docker compose up -d cpq_db
 ```
 
 **Backend not starting**
 ```bash
 # Check backend logs
-docker-compose logs backend
+docker compose logs backend
 
 # Rebuild backend
-docker-compose up --build backend
+docker compose up --build backend
 ```
 
 **Frontend not connecting to backend**

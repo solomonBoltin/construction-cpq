@@ -33,8 +33,8 @@ Thank you for your interest in contributing to the Construction CPQ project! Thi
 
 2. **Start development environment**
    ```bash
-   docker-compose down -v
-   docker-compose up --build -d
+   docker compose down -v
+   docker compose up --build -d
    ```
 
 3. **Verify setup**
@@ -99,8 +99,8 @@ pytest tests/ --cov=app --cov-report=term
 
 **E2E Tests:**
 ```bash
-docker-compose up --build e2e_tests
-docker-compose logs e2e_tests
+docker compose up --build e2e_tests
+docker compose logs e2e_tests
 ```
 
 ### Writing Tests
