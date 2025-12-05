@@ -1,0 +1,55 @@
+name: E2E Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Create .env file
+      run: |
+        cp .env.example .env
+    
+    - name: Create Docker network
+      run: docker network create traefik-network || true
+    
+    - name: Start services
+      run: |
+        docker compose up -d cpq_db backend
+        
+    - name: Wait for services to be healthy
+      run: |
+        echo "Waiting for database..."
+        timeout 60 bash -c 'until docker compose ps cpq_db | grep -q healthy; do sleep 2; done'
+        echo "Waiting for backend..."
+        timeout 60 bash -c 'until docker compose ps backend | grep -q healthy; do sleep 2; done'
+    
+    - name: Run E2E tests
+      run: |
+        docker compose build e2e_tests
+        docker compose run --rm e2e_tests pytest . -v -s --tb=short
+    
+    - name: Show logs on failure
+      if: failure()
+      run: |
+        echo "=== Backend logs ==="
+        docker compose logs backend
+        echo "=== Database logs ==="
+        docker compose logs cpq_db
+        echo "=== E2E test logs ==="
+        docker compose logs e2e_tests
+    
+    - name: Cleanup
+      if: always()
+      run: |
+        docker compose down -v
