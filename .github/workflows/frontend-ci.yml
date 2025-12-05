@@ -15,6 +15,8 @@ on:
 jobs:
   lint-and-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
@@ -22,7 +24,7 @@ jobs:
     - name: Set up Node.js
       uses: actions/setup-node@v4
       with:
-        node-version: '20'
+        node-version: '18'
         cache: 'npm'
         cache-dependency-path: frontend/package-lock.json
     
@@ -47,6 +49,8 @@ jobs:
 
   docker-build:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     
     steps:
     - uses: actions/checkout@v4
